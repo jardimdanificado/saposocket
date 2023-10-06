@@ -1,5 +1,8 @@
 import * as WebSocket from 'ws';
 import * as readline from 'readline';
+import { stdout } from 'process';
+
+var currentCursor = '@> ';
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -8,13 +11,13 @@ const rl = readline.createInterface({
 
 const getInput = async (callback) =>
 {
-    return rl.question('$> ', (input) => 
+    return rl.question(currentCursor, (input) => 
     {
         if (input === 'exit') 
         {
             rl.close();
         }
-        if (callback) 
+        else if (callback) 
         {
             callback(input)
         }
@@ -35,7 +38,6 @@ const _console = async function(self)
         let cmd = args[0];
         args = args.slice(1);
         self.call(cmd,args);
-        console.log(self.call)
         await getInput(_call);
     }
     await getInput(_call);
@@ -46,7 +48,16 @@ export class Client
     func = {
         log: function(socket,data)
         {
-            console.log('server says: ' + JSON.stringify(data));
+            let content = 'server says: ' + JSON.stringify(data) + '\n' + currentCursor;
+            for(let i = content.length - 1; i >= 0; i--)
+            {
+                if(content[i] == '\n')
+                {
+                    content.slice(0,i);
+                    break;
+                }
+            }
+            stdout.write(content);
         }
     }
     console = ()=>{_console(this)};
@@ -56,7 +67,14 @@ export class Client
         
         this.socket.addEventListener('open', (event) => 
         {
-            callback(this.socket,'')
+            callback(this.socket,'');
+        });
+
+        this.socket.addEventListener('close', (event) => 
+        {
+            rl.close();
+            this.socket.close();
+            process.exit();
         });
     
         this.socket.addEventListener('message', (event) => 
