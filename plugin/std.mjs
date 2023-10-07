@@ -25,27 +25,9 @@ const getInput = async (callback) =>
 
 export const client = 
 {
-    console: async function(client,data)
-    {
-        let _call = async (input)=>
-        {
-            if (input === 'exit') 
-            {
-                rl.close();
-                return;
-            }
-            let args = input.split(' ');
-            let cmd = args[0];
-            args = args.slice(1);
-            client.call(cmd,args);
-            await getInput(_call);
-        }
-        await getInput(_call);
-    },
     log:function(client,data)
     {
-        let __data = typeof(data) == 'string' ? data : JSON.stringify(data);
-        let content = 'server says: ' + __data + '\n' + '@> ';
+        let content = 'server says: ' + (data.message || data) + '\n' + '@> ';
         for(let i = content.length - 1; i >= 0; i--)
         {
             if(content[i] == '\n')
@@ -55,6 +37,26 @@ export const client =
             }
         }
         process.stdout.write(content);
+    },
+    init: function(client)
+    {
+        client.console = async function()
+        {
+            let _call = async (input)=>
+            {
+                if (input === 'exit') 
+                {
+                    rl.close();
+                    return;
+                }
+                let args = input.split(' ');
+                let cmd = args[0];
+                args = args.slice(1);
+                client.call(cmd,args);
+                await getInput(_call);
+            }
+            await getInput(_call);
+        }
     }
 }
 

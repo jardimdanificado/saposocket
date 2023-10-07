@@ -1,5 +1,35 @@
 import * as WebSocket from 'ws';
 
+export class ContainedFunction
+{
+    constructor(name,func,args)
+    {
+        this.name = name;
+        this.func = func;
+        this.args = args;
+    }
+}
+
+export class MultiFunction
+{
+    func = [];
+    args = [];
+    run = function()
+    {
+        for(let i in this.func)
+        {
+            this.func[i](args[i]);
+        }
+    }
+    constructor(funcs,args)
+    {
+        for(let i in funcs)
+        {
+            this.func.push(new ContainedFunction('',funcs[i],args[i] || []));
+        }
+    }
+}
+
 export class Client 
 {
     func = {};
@@ -7,20 +37,35 @@ export class Client
     {
         if(_plugin.client)
         {
-            for(let i in _plugin.client)
-            {
-                this.func[i] = _plugin.client[i];
-            }   
+            _plugin = _plugin.client;
         }
-        else
+
+        for(let i in _plugin)
         {
-            for(let i in _plugin)
+            if(i == 'init')
+            {
+                _plugin[i](this);
+            }
+            else
             {
                 this.func[i] = _plugin[i];
             }
-            return this;
-        }
+        }   
     }
+
+    call = function(id, data)
+    {
+        this.socket.send(JSON.stringify({
+            id: id,
+            data: data
+        }))
+    }
+
+    selfCall = function(id, data)
+    {
+        this.func[id](this,data)
+    }
+    
     constructor(ipaddr,callback)
     {
         this.socket = new WebSocket.WebSocket('ws://' + (ipaddr) + '/');
@@ -36,29 +81,13 @@ export class Client
             this.socket.close();
             process.exit();
         });
-    
-        this.call = function(id, data)
-        {
-            this.socket.send(JSON.stringify({
-                id: id,
-                data: data
-            }))
-        }
-
-        this.selfCall = function(id, data)
-        {
-            this.func[id](this,JSON.stringify({
-                id: id,
-                data: data
-            }))
-        }
 
         this.socket.addEventListener('message', (event) => 
         {
             let data = JSON.parse(event.data);
             if(data.id && this.func[data.id])
             {
-                this.selfCall(data.id,data);
+                this.selfCall(data.id,data.data);
             }
         });
 
@@ -72,19 +101,20 @@ export class Server
     {
         if(_plugin.server)
         {
-            for(let i in _plugin.server)
-            {
-                this.func[i] = _plugin.server[i];
-            }   
+            _plugin = _plugin.server;
         }
-        else
+
+        for(let i in _plugin)
         {
-            for(let i in _plugin)
+            if(i == 'init')
+            {
+                _plugin[i](this);
+            }
+            else
             {
                 this.func[i] = _plugin[i];
             }
-            return this;
-        }
+        }   
     }
     constructor(port='8080')
     {
@@ -111,7 +141,7 @@ export class Server
                     }
                     else
                     {
-                        socket.call('log',{message:'unknown command: '+data.id});
+                        socket.call('log',{message:'unknown command: '+ data.id});
                     }
                 }
             });
