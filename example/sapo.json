@@ -1,0 +1,7 @@
+{
+  "plugins": 
+  {
+    "client":["std"],
+    "server":["std"]
+  }
+}
