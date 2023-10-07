@@ -10,18 +10,46 @@ export class ContainedFunction
     }
 }
 
+export class ExitSignal
+{
+    constructor()
+    {
+        this.exit = function(rl,client) 
+        {
+            if (rl) 
+            {
+                rl.close();    
+            }
+
+            if (client) 
+            {
+                client.socket.close();
+            }
+
+            process.exit();
+        }
+    }
+}
+
 export class MultiFunction
 {
     func = [];
     args = [];
-    run = function()
+    run = function(_arg)
     {
+        let result
         for(let i in this.func)
         {
-            this.func[i](args[i]);
+            result = this.func[i].func(_arg || this.args[i] || []);
+            if (result instanceof ExitSignal)
+            {
+                result.exit();
+                return result;
+            }
         }
+        return result;
     }
-    constructor(funcs,args)
+    constructor(funcs,args,rl,client)
     {
         for(let i in funcs)
         {
@@ -70,27 +98,34 @@ export class Client
     {
         this.socket = new WebSocket.WebSocket('ws://' + (ipaddr) + '/');
         
-        this.socket.addEventListener('open', (event) => 
-        {
-            callback(this.socket,'');
-        });
-
-        this.socket.addEventListener('close', (event) => 
-        {
-            //rl.close();
-            this.socket.close();
-            process.exit();
-        });
-
-        this.socket.addEventListener('message', (event) => 
-        {
-            let data = JSON.parse(event.data);
-            if(data.id && this.func[data.id])
+        this.onopen = new MultiFunction([(event) => 
             {
-                this.selfCall(data.id,data.data);
+                callback(this.socket,'');
             }
-        });
+        ],[])
 
+        this.socket.addEventListener('open', (event)=>{this.onopen.run(event,this)});
+
+        this.onclose = new MultiFunction([(event) => 
+            {
+                //rl.close();
+                this.socket.close();
+                process.exit();
+            }
+        ],[])
+
+        this.socket.addEventListener('close', (event)=>{this.onclose.run(event,this)});
+
+        this.onmessage = new MultiFunction([(event) => 
+            {
+                let data = JSON.parse(event.data);
+                if(data.id && this.func[data.id])
+                {
+                    this.selfCall(data.id,data.data);
+                }
+            }
+        ],[]);
+        this.socket.addEventListener('message', (event) => {this.onmessage.run(event,this)});
     }
 }
 

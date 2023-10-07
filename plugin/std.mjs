@@ -9,11 +9,7 @@ const getInput = async (callback) =>
 {
     return rl.question('@> ', (input) => 
     {
-        if (input === 'exit') 
-        {
-            rl.close();
-        }
-        else if (callback) 
+        if (callback) 
         {
             callback(input)
         }
@@ -27,7 +23,7 @@ export const client =
 {
     log:function(client,data)
     {
-        let content = 'server says: ' + (data.message || data) + '\n' + '@> ';
+        let content = 'server says: ' + (data.message || JSON.stringify(data)) + '\n' + '@> ';
         for(let i = content.length - 1; i >= 0; i--)
         {
             if(content[i] == '\n')
@@ -44,9 +40,12 @@ export const client =
         {
             let _call = async (input)=>
             {
+                console.log(input)
                 if (input === 'exit') 
                 {
+                    client.socket.close();
                     rl.close();
+                    process.exit();
                     return;
                 }
                 let args = input.split(' ');
@@ -64,6 +63,6 @@ export const server =
 {
     log: function(server,client,data)
     {
-        console.log(client.request.connection.remoteAddress + ' says: ' + JSON.stringify(data));
+        console.log(client.request.connection.remoteAddress + ' says: ' + (data.message || JSON.stringify(data)));
     }
 }
