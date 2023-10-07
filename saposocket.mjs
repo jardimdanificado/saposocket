@@ -1,66 +1,31 @@
 import * as WebSocket from 'ws';
-import * as readline from 'readline';
-import { stdout } from 'process';
-
-var currentCursor = '@> ';
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-
-const getInput = async (callback) =>
-{
-    return rl.question(currentCursor, (input) => 
-    {
-        if (input === 'exit') 
-        {
-            rl.close();
-        }
-        else if (callback) 
-        {
-            callback(input)
-        }
-        return input;
-    });
-}
-
-const _console = async function(self)
-{
-    let _call = async (input)=>
-    {
-        if (input === 'exit') 
-        {
-            rl.close();
-            return;
-        }
-        let args = input.split(' ');
-        let cmd = args[0];
-        args = args.slice(1);
-        self.call(cmd,args);
-        await getInput(_call);
-    }
-    await getInput(_call);
-}
 
 export class Client 
 {
-    func = {
-        log: function(socket,data)
+    func = {};
+    plugin = async function(mod)
+    {
+        if(typeof(mod) == 'string')
         {
-            let content = 'server says: ' + JSON.stringify(data) + '\n' + currentCursor;
-            for(let i = content.length - 1; i >= 0; i--)
+            if (mod.includes('.'))
+                mod = await import(mod)
+            else
+                mod = await import('./plugin/client/' + mod + '.mjs');
+        }
+
+        if (mod.main) 
+        {
+            return await mod.main(this);
+        }
+        else
+        {
+            for(let i in mod)
             {
-                if(content[i] == '\n')
-                {
-                    content.slice(0,i);
-                    break;
-                }
+                this.func[i] = mod[i];
             }
-            stdout.write(content);
+            return this;
         }
     }
-    console = ()=>{_console(this)};
     constructor(ipaddr,callback)
     {
         this.socket = new WebSocket.WebSocket('ws://' + (ipaddr) + '/');
@@ -72,20 +37,11 @@ export class Client
 
         this.socket.addEventListener('close', (event) => 
         {
-            rl.close();
+            //rl.close();
             this.socket.close();
             process.exit();
         });
     
-        this.socket.addEventListener('message', (event) => 
-        {
-            let data = JSON.parse(event.data);
-            if(data.id && this.func[data.id])
-            {
-                this.func[data.id](this.socket,data.data || {});
-            }
-        });
-
         this.call = function(id, data)
         {
             this.socket.send(JSON.stringify({
@@ -93,16 +49,51 @@ export class Client
                 data: data
             }))
         }
+
+        this.selfCall = function(id, data)
+        {
+            this.func[id](JSON.stringify({
+                id: id,
+                data: data
+            }))
+        }
+
+        this.socket.addEventListener('message', (event) => 
+        {
+            let data = JSON.parse(event.data);
+            if(data.id && this.func[data.id])
+            {
+                this.selfCall(data.id,data);
+            }
+        });
+
     }
 }
 
 export class Server 
 {
-    func = 
+    func = {}
+    plugin = async function(mod)
     {
-        log: function(socket,request,data)
+        if(typeof(mod) == 'string')
         {
-            console.log(request.connection.remoteAddress + ' says: ' + JSON.stringify(data));
+            if (mod.includes('.'))
+                mod = await import(mod)
+            else
+                mod = await import('./plugin/server/' + mod + '.mjs');
+        }
+
+        if (mod.main) 
+        {
+            return await mod.main(this);
+        }
+        else
+        {
+            for(let i in mod)
+            {
+                this.func[i] = mod[i];
+            }
+            return this;
         }
     }
     constructor(port='8080')
@@ -110,6 +101,7 @@ export class Server
         const server = new WebSocket.WebSocketServer({ port: port });
         server.on('connection', (socket,request) => 
         {
+            const client = {socket,request};
             socket.call = function(id, data)
             {
                 socket.send(JSON.stringify({
@@ -125,7 +117,7 @@ export class Server
                 {
                     if(typeof(this.func[data.id]) == 'function')
                     {
-                        this.func[data.id](socket,request,data.data || {});
+                        this.func[data.id](this,client,data.data || {});
                     }
                     else
                     {
