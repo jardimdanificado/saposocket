@@ -1,62 +1,6 @@
 import * as WebSocket from 'ws';
 
-export class ContainedFunction
-{
-    constructor(name,func,args)
-    {
-        this.name = name;
-        this.func = func;
-        this.args = args;
-    }
-}
 
-export class ExitSignal
-{
-    constructor()
-    {
-        this.exit = function(rl,client) 
-        {
-            if (rl) 
-            {
-                rl.close();    
-            }
-
-            if (client) 
-            {
-                client.socket.close();
-            }
-
-            process.exit();
-        }
-    }
-}
-
-export class MultiFunction
-{
-    func = [];
-    args = [];
-    run = function(_arg)
-    {
-        let result
-        for(let i in this.func)
-        {
-            result = this.func[i].func(_arg || this.args[i] || []);
-            if (result instanceof ExitSignal)
-            {
-                result.exit();
-                return result;
-            }
-        }
-        return result;
-    }
-    constructor(funcs,args,rl,client)
-    {
-        for(let i in funcs)
-        {
-            this.func.push(new ContainedFunction('',funcs[i],args[i] || []));
-        }
-    }
-}
 
 export class Client 
 {
@@ -97,42 +41,79 @@ export class Client
     constructor(ipaddr,callback)
     {
         this.socket = new WebSocket.WebSocket('ws://' + (ipaddr) + '/');
-        
-        this.onopen = new MultiFunction([(event) => 
+
+
+        this.socket.addEventListener('open', (event) => 
+        {
+            callback(this.socket,'');
+        });
+
+        this.socket.addEventListener('close', (event) => 
+        {
+            //rl.close();
+            this.socket.close();
+            process.exit();
+        });
+
+        this.socket.addEventListener('message', (event) => 
+        {
+            let data = JSON.parse(event.data);
+            if(data.id && this.func[data.id])
             {
-                callback(this.socket,'');
+                this.selfCall(data.id,data.data);
             }
-        ],[])
-
-        this.socket.addEventListener('open', (event)=>{this.onopen.run(event,this)});
-
-        this.onclose = new MultiFunction([(event) => 
-            {
-                //rl.close();
-                this.socket.close();
-                process.exit();
-            }
-        ],[])
-
-        this.socket.addEventListener('close', (event)=>{this.onclose.run(event,this)});
-
-        this.onmessage = new MultiFunction([(event) => 
-            {
-                let data = JSON.parse(event.data);
-                if(data.id && this.func[data.id])
-                {
-                    this.selfCall(data.id,data.data);
-                }
-            }
-        ],[]);
-        this.socket.addEventListener('message', (event) => {this.onmessage.run(event,this)});
+        });
     }
 }
 
 export class Server 
 {
-    func = {}
+    func = 
+    {
+        login:(server,client,data)=>
+        {
+            data.password ??= data[0];
+            if(this.su.password.indexOf(data.password) == -1)
+            {
+                client.socket.call('log',{message:'invalid password'});
+                return;
+            }
+            else
+            {
+                this.su.user.push(client.request.connection.remoteAddress);
+            }
+        },
+        $newPassword: (server, client, data) =>
+        {
+            data.password ??= data[0];
+            if (this.su.auth(client.request.connection.remoteAddress)) 
+            {
+                this.su.password.push(data.password);
+            }
+            else
+            {
+                client.socket.call('log',{message:'unauthorized access denied.'});
+                return;
+            }
+        }
+    }
     clients = []
+    su = 
+    {
+        auth:(ip)=>
+        {
+            if(this.su.user.indexOf(ip) == -1)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        },
+        user:['127.0.0.1'],
+        password:['admin']
+    }
     plugin = async function(_plugin)
     {
         if(_plugin.server)
@@ -174,7 +155,19 @@ export class Server
                 {
                     if(typeof(this.func[data.id]) == 'function')
                     {
-                        this.func[data.id](this,client,data.data || {});
+                        if (data.id[0] == '$') 
+                        {
+                            if (this.su.auth(request.connection.remoteAddress)) 
+                            {
+                                this.func[data.id](this,client,data.data ?? {});
+                            }
+                            else 
+                            {
+                                socket.call('log',{message:'unauthorized access denied.'});
+                                return;
+                            }
+                        }
+                        this.func[data.id](this,client,data.data ?? {});
                     }
                     else
                     {
@@ -185,6 +178,7 @@ export class Server
 
             socket.on('close', () => 
             {
+                this.su.user.splice(this.su.user.indexOf(request.connection.remoteAddress),1);
                 this.clients.splice(this.clients.indexOf(client),1);
                 console.log('client '+ request.connection.remoteAddress + ' disconnected.');
                 socket.close();
