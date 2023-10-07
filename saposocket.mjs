@@ -4,7 +4,7 @@ import * as WebSocket from 'ws';
 
 export class Client 
 {
-    func = {};
+    plugin = {};
     plugin = async function(_plugin)
     {
         if(_plugin.client)
@@ -20,7 +20,7 @@ export class Client
             }
             else
             {
-                this.func[i] = _plugin[i];
+                this.plugin[i] = _plugin[i];
             }
         }   
     }
@@ -35,7 +35,7 @@ export class Client
 
     selfCall = function(id, data)
     {
-        this.func[id](this,data)
+        this.plugin[id](this,data)
     }
     
     constructor(ipaddr,callback)
@@ -58,7 +58,7 @@ export class Client
         this.socket.addEventListener('message', (event) => 
         {
             let data = JSON.parse(event.data);
-            if(data.id && this.func[data.id])
+            if(data.id && this.plugin[data.id])
             {
                 this.selfCall(data.id,data.data);
             }
@@ -68,7 +68,7 @@ export class Client
 
 export class Server 
 {
-    func = 
+    plugin = 
     {
         login:(server,client,data)=>
         {
@@ -129,7 +129,7 @@ export class Server
             }
             else
             {
-                this.func[i] = _plugin[i];
+                this.plugin[i] = _plugin[i];
             }
         }   
     }
@@ -153,13 +153,13 @@ export class Server
                 let data = JSON.parse(message);
                 if(data.id)
                 {
-                    if(typeof(this.func[data.id]) == 'function')
+                    if(typeof(this.plugin[data.id]) == 'function')
                     {
                         if (data.id[0] == '$') 
                         {
                             if (this.su.auth(request.connection.remoteAddress)) 
                             {
-                                this.func[data.id](this,client,data.data ?? {});
+                                this.plugin[data.id](this,client,data.data ?? {});
                             }
                             else 
                             {
@@ -167,7 +167,7 @@ export class Server
                                 return;
                             }
                         }
-                        this.func[data.id](this,client,data.data ?? {});
+                        this.plugin[data.id](this,client,data.data ?? {});
                     }
                     else
                     {
