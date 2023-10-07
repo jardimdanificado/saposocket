@@ -19,49 +19,51 @@ const getInput = async (callback) =>
 
 
 
-export const client = 
+let std = 
 {
-    log:function(client,data)
+    client: 
     {
-        let content = 'server says: ' + (data.message ?? JSON.stringify(data)) + '\n' + '@> ';
-        for(let i = content.length - 1; i >= 0; i--)
+        log:function(client,data)
         {
-            if(content[i] == '\n')
+            let content = 'server says: ' + (data.message ?? JSON.stringify(data)) + '\n' + '@> ';
+            for(let i = content.length - 1; i >= 0; i--)
             {
-                content.slice(0,i);
-                break;
-            }
-        }
-        process.stdout.write(content);
-    },
-    init: function(client)
-    {
-        client.console = async function()
-        {
-            let _call = async (input)=>
-            {
-                if (input === 'exit') 
+                if(content[i] == '\n')
                 {
-                    client.socket.close();
-                    rl.close();
-                    process.exit();
-                    return;
+                    content.slice(0,i);
+                    break;
                 }
-                let args = input.split(' ');
-                let cmd = args[0];
-                args = args.slice(1);
-                client.call(cmd,args);
+            }
+            process.stdout.write(content);
+        },
+        init: function(client)
+        {
+            client.console = async function()
+            {
+                let _call = async (input)=>
+                {
+                    if (input === 'exit') 
+                    {
+                        client.socket.close();
+                        rl.close();
+                        process.exit();
+                        return;
+                    }
+                    let args = input.split(' ');
+                    let cmd = args[0];
+                    args = args.slice(1);
+                    client.call(cmd,args);
+                    await getInput(_call);
+                }
                 await getInput(_call);
             }
-            await getInput(_call);
         }
-    }
-}
-
-export const server = 
-{
-    log: function(server,client,data)
+    },
+    server: 
     {
-        console.log(client.request.connection.remoteAddress + ' says: ' + (data.message ?? JSON.stringify(data)));
+        log: function(server,client,data)
+        {
+            console.log(client.request.connection.remoteAddress + ' says: ' + (data.message ?? JSON.stringify(data)));
+        }
     }
 }
