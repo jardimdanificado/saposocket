@@ -3,25 +3,20 @@ import * as WebSocket from 'ws';
 export class Client 
 {
     func = {};
-    plugin = async function(mod)
+    plugin = async function(_plugin)
     {
-        if(typeof(mod) == 'string')
+        if(_plugin.client)
         {
-            if (mod.includes('.'))
-                mod = await import(mod)
-            else
-                mod = await import('./plugin/client/' + mod + '.mjs');
-        }
-
-        if (mod.main) 
-        {
-            return await mod.main(this);
+            for(let i in _plugin.client)
+            {
+                this.func[i] = _plugin.client[i];
+            }   
         }
         else
         {
-            for(let i in mod)
+            for(let i in _plugin)
             {
-                this.func[i] = mod[i];
+                this.func[i] = _plugin[i];
             }
             return this;
         }
@@ -52,7 +47,7 @@ export class Client
 
         this.selfCall = function(id, data)
         {
-            this.func[id](JSON.stringify({
+            this.func[id](this,JSON.stringify({
                 id: id,
                 data: data
             }))
@@ -73,25 +68,20 @@ export class Client
 export class Server 
 {
     func = {}
-    plugin = async function(mod)
+    plugin = async function(_plugin)
     {
-        if(typeof(mod) == 'string')
+        if(_plugin.server)
         {
-            if (mod.includes('.'))
-                mod = await import(mod)
-            else
-                mod = await import('./plugin/server/' + mod + '.mjs');
-        }
-
-        if (mod.main) 
-        {
-            return await mod.main(this);
+            for(let i in _plugin.server)
+            {
+                this.func[i] = _plugin.server[i];
+            }   
         }
         else
         {
-            for(let i in mod)
+            for(let i in _plugin)
             {
-                this.func[i] = mod[i];
+                this.func[i] = _plugin[i];
             }
             return this;
         }
