@@ -132,6 +132,7 @@ export class Client
 export class Server 
 {
     func = {}
+    clients = []
     plugin = async function(_plugin)
     {
         if(_plugin.server)
@@ -157,6 +158,7 @@ export class Server
         server.on('connection', (socket,request) => 
         {
             const client = {socket,request};
+            this.clients.push(client);
             socket.call = function(id, data)
             {
                 socket.send(JSON.stringify({
@@ -183,6 +185,7 @@ export class Server
 
             socket.on('close', () => 
             {
+                this.clients.splice(this.clients.indexOf(client),1);
                 console.log('client '+ request.connection.remoteAddress + ' disconnected.');
                 socket.close();
             });
