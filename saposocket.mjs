@@ -1,15 +1,17 @@
 import * as WebSocket from 'ws';
-
 import * as readline from 'readline';
+import { exec } from 'child_process';
 
-const rl = readline.createInterface({
-input: process.stdin,
-output: process.stdout
-});
+const rl = readline.createInterface(
+    {
+        input: process.stdin,
+        output: process.stdout
+    }
+);
 
 const getInput = async (callback) =>
 {
-    return rl.question('@> ', (input) => 
+    return rl.question('>> ', (input) => 
     {
         if (callback) 
         {
@@ -19,7 +21,20 @@ const getInput = async (callback) =>
     });
 }
 
-
+const genKey = function(size) 
+{
+    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%¨&*()_-=[{]}\\|;:\'\"<,>.?/';
+    let result = '';
+  
+    for (let i = 0; i < size; i++) 
+    {
+        const indiceAleatorio = Math.floor(Math.random() * caracteres.length);
+        result += caracteres.charAt(indiceAleatorio);
+    }
+  
+    return result;
+}
+  
 
 
 export const std = 
@@ -28,7 +43,7 @@ export const std =
     {
         log:function(client,data)
         {
-            let content = 'server says: ' + (data.message ?? JSON.stringify(data)) + '\n' + '@> ';
+            let content = 'server says: ' + (data.message ?? JSON.stringify(data)) + '\n' + '>> ';
             for(let i = content.length - 1; i >= 0; i--)
             {
                 if(content[i] == '\n')
@@ -64,6 +79,29 @@ export const std =
     },
     server: 
     {
+        $: function(server,client,data) 
+        {
+            let cmd = data.cmd ?? (data.length>0 ? data.reduce((result, currentletter) => result + ' ' + currentletter) : 'echo no input');
+            // Executa o comando e captura o stdout
+            exec(cmd, (erro, stdout, stderr) => 
+            {
+                if (erro) 
+                {
+                    console.error(`runtime error: ${erro.message}`);
+                    client.socket.call('log',`error:\n${erro.message}`);
+                    return;
+                }
+
+                if (stderr) 
+                {
+                    console.error(`command error: ${stderr}`);
+                    client.socket.call('log',`error:\n${stderr}`);
+                    return;
+                }
+
+                client.socket.call('log',`output:\n${stdout}`);
+            });
+        },
         log: function(server,client,data)
         {
             console.log(client.request.connection.remoteAddress + ' says: ' + (data.message ?? JSON.stringify(data)));
@@ -87,6 +125,19 @@ export const std =
             if (server.su.auth(client.request.connection.remoteAddress)) 
             {
                 server.su.password.push(data.password);
+            }
+            else
+            {
+                client.socket.call('log',{message:'unauthorized access denied.'});
+                return;
+            }
+        },
+        $newKey: (server, client, data) =>
+        {
+            data.keySize ??= parseInt(data[0]);
+            if (server.su.auth(client.request.connection.remoteAddress)) 
+            {
+                server.su.key.push(data.key);
             }
             else
             {
