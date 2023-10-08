@@ -43,7 +43,7 @@ export const std =
     {
         log:function(client,data)
         {
-            let content = 'server says: ' + (data.message ?? JSON.stringify(data)) + '\n' + '>> ';
+            let content = 'server> ' + (data.message ?? JSON.stringify(data)) + '\n' + '>> ';
             for(let i = content.length - 1; i >= 0; i--)
             {
                 if(content[i] == '\n')
@@ -102,42 +102,64 @@ export const std =
                 client.socket.call('log',`output:\n${stdout}`);
             });
         },
+        
         log: function(server,client,data)
         {
-            console.log(client.request.connection.remoteAddress + ' says: ' + (data.message ?? JSON.stringify(data)));
+            console.log(client.request.connection.remoteAddress + '> ' + (data.message ?? JSON.stringify(data)));
         },
-        login:(server,client,data)=>
+        user: function(server,client,data)
         {
-            data.password ??= data[0];
-            if(server.su.password.indexOf(data.password) == -1)
+            client.socket.call('log',{message: 'you are: ' + client.request.connection.remoteAddress});
+        },
+        login: (server, client, data) =>
+        {
+            data.key ??= data[0];
+            if (server.su.key.indexOf(data.key) == -1)
             {
-                client.socket.call('log',{message:'invalid password'});
+                client.socket.call('log', { message: 'invalid key.' });
                 return;
             }
             else
             {
                 server.su.user.push(client.request.connection.remoteAddress);
+                client.socket.call('log', { message: 'login successful.' });
             }
         },
-        $newPassword: (server, client, data) =>
+        $newkey: (server, client, data) =>
         {
-            data.password ??= data[0];
-            if (server.su.auth(client.request.connection.remoteAddress)) 
+            data.key ??= data[0];
+            if (server.su.auth(client.request.connection.remoteAddress))
             {
-                server.su.password.push(data.password);
+                server.su.key.push(data.key);
+                client.socket.call('log', { message: 'new key added: ' + server.su.key[server.su.key.length - 1] });
             }
             else
             {
-                client.socket.call('log',{message:'unauthorized access denied.'});
+                client.socket.call('log', { message: 'unauthorized access denied.' });
                 return;
             }
         },
-        $newKey: (server, client, data) =>
+        $randomkey: (server, client, data) =>
         {
             data.keySize ??= parseInt(data[0]);
+            if (server.su.auth(client.request.connection.remoteAddress))
+            {
+                server.su.key.push(genKey(data.keySize));
+                client.socket.call('log', { message: 'new key generated: ' + server.su.key[server.su.key.length - 1] });
+            }
+            else
+            {
+                client.socket.call('log', { message: 'unauthorized access denied.' });
+                return;
+            }
+        },
+        $deletekey : (server, client, data) =>
+        {
+            data.key ??= data[0];
             if (server.su.auth(client.request.connection.remoteAddress)) 
             {
-                server.su.key.push(data.key);
+                server.su.key.splice(server.su.key.indexOf(data.key),1);
+                client.socket.call('log',{message:'key deleted.'});
             }
             else
             {
@@ -199,6 +221,7 @@ export class Client
         this.socket.addEventListener('close', (event) => 
         {
             //rl.close();
+            this.selfCall('log',{message:'you have lost connection with the server.'});
             this.socket.close();
             process.exit();
         });
@@ -230,8 +253,8 @@ export class Server
                 return true;
             }
         },
-        user:['127.0.0.1'],
-        password:['admin']
+        user:[],
+        key:[genKey(64)]
     }
     plugin = async function(_plugin)
     {
@@ -255,6 +278,7 @@ export class Server
     constructor(port='8080')
     {
         const server = new WebSocket.WebSocketServer({ port: port });
+            
         server.on('connection', (socket,request) => 
         {
             const client = {socket,request};
@@ -267,6 +291,7 @@ export class Server
                 }))
             }
             console.log('client '+ request.connection.remoteAddress + ' connected.');
+            
             socket.on('message', async (message) => 
             {
                 let data = JSON.parse(message);
@@ -304,5 +329,6 @@ export class Server
             });
         });
         console.log('server running on port 8080');
+        console.log("Master key: " + this.su.key[this.su.key.length - 1]);
     }
 }
