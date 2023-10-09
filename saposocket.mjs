@@ -9,22 +9,17 @@ const rl = readline.createInterface(
     }
 );
 
-class User 
-{
-    constructor(username, password, su = false) 
-    {
+class User {
+    constructor(username, password, su = false) {
         this.username = username;
         this.password = password;
         this.su = su;
     }
 }
 
-const getInput = async (callback) =>
-{
-    return rl.question('>> ', (input) => 
-    {
-        if (callback) 
-        {
+const getInput = async (callback) => {
+    return rl.question('>> ', (input) => {
+        if (callback) {
             callback(input)
         }
         return input;
@@ -39,20 +34,19 @@ const getInput = async (callback) =>
 //--------------------------------------------
 //--------------------------------------------
 
-const genKey = function(size) 
-{
+const genKey = function (size) {
     const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%¨&*()_-=[{]}\\|;:\'\"<,>.?/';
     let result = '';
-  
-    for (let i = 0; i < size; i++) 
-    {
+
+    for (let i = 0; i < size; i++) {
         const indiceAleatorio = Math.floor(Math.random() * caracteres.length);
         result += caracteres.charAt(indiceAleatorio);
     }
-  
+
     return result;
 }
-  
+
+
 //--------------------------------------------
 //--------------------------------------------
 //STD
@@ -62,31 +56,99 @@ const genKey = function(size)
 //--------------------------------------------
 
 
-export const std = 
+// Função para criar uma chave com permutação dos caracteres
+function createCryptoKey() 
 {
-    client: 
+    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%¨&*()_-=[{]}\\|;:\'\"<,>.?/ ';
+    const shuffledCaracteres = shuffleString(caracteres);
+    return shuffledCaracteres;
+}
+
+// Função para embaralhar uma string
+function shuffleString(str) 
+{
+    const arr = str.split('');
+    for (let i = arr.length - 1; i > 0; i--) 
     {
-        log:function(client,data)
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr.join('');
+}
+
+// Função para criptografar uma mensagem usando a chave
+function encrypt(message, key) 
+{
+    let encryptedMessage = '';
+    for (let i = 0; i < message.length; i++) 
+    {
+        const char = message.charAt(i);
+        const charIndex = key.indexOf(char);
+        if (charIndex !== -1) 
         {
+            const encryptedChar = key[(charIndex + i) % key.length];
+            encryptedMessage += encryptedChar;
+        } 
+        else 
+        {
+            encryptedMessage += char;
+        }
+    }
+    return encryptedMessage;
+}
+
+// Função para descriptografar uma mensagem usando a chave
+function decrypt(encryptedMessage, key) 
+{
+    let decryptedMessage = '';
+    for (let i = 0; i < encryptedMessage.length; i++) 
+    {
+        const char = encryptedMessage.charAt(i);
+        const charIndex = key.indexOf(char);
+        if (charIndex !== -1) 
+        {
+            const decryptedCharIndex = (charIndex - i + key.length) % key.length;
+            decryptedMessage += key[decryptedCharIndex];
+        } 
+        else 
+        {
+            decryptedMessage += char;
+        }
+    }
+    return decryptedMessage;
+}
+
+
+//--------------------------------------------
+//--------------------------------------------
+//STD
+//STD
+//STD
+//--------------------------------------------
+//--------------------------------------------
+
+
+export const std =
+{
+    client:
+    {
+        setKey: function (client, data) {
+            client._key = data.key;
+        },
+        log: function (client, data) {
             let content = 'server> ' + (data.message ?? JSON.stringify(data)) + '\n' + '>> ';
-            for(let i = content.length - 1; i >= 0; i--)
-            {
-                if(content[i] == '\n')
-                {
-                    content.slice(0,i);
+            for (let i = content.length - 1; i >= 0; i--) {
+                if (content[i] == '\n') {
+                    content.slice(0, i);
                     break;
                 }
             }
             process.stdout.write(content);
         },
-        init: function(client)
-        {
-            client.console = async function()
-            {
-                let _call = async (input)=>
-                {
-                    if (input === 'exit') 
-                    {
+        init: function (client) {
+            client.console = async function () {
+                let _call = async (input) => {
+                    if (input === 'exit') {
                         client.socket.close();
                         rl.close();
                         process.exit();
@@ -95,114 +157,96 @@ export const std =
                     let args = input.split(' ');
                     let cmd = args[0];
                     args = args.slice(1);
-                    client.call(cmd,args);
+                    client.call(cmd, args);
                     await getInput(_call);
                 }
                 await getInput(_call);
             }
         }
     },
-    server: 
+    server:
     {
-        $do: function(server,client,data) 
-        {
-            let cmd = data.cmd ?? (data.length>0 ? data.reduce((result, currentletter) => result + ' ' + currentletter) : 'echo no input');
+        $do: function (server, client, data) {
+            let cmd = data.cmd ?? (data.length > 0 ? data.reduce((result, currentletter) => result + ' ' + currentletter) : 'echo no input');
             // Executa o comando e captura o stdout
-            exec(cmd, (erro, stdout, stderr) => 
-            {
-                if (erro) 
-                {
+            exec(cmd, (erro, stdout, stderr) => {
+                if (erro) {
                     console.error(`runtime error: ${erro.message}`);
-                    client.socket.call('log',`error:\n${erro.message}`);
+                    client.socket.call('log', `error:\n${erro.message}`);
                     return;
                 }
 
-                if (stderr) 
-                {
+                if (stderr) {
                     console.error(`command error: ${stderr}`);
-                    client.socket.call('log',`error:\n${stderr}`);
+                    client.socket.call('log', `error:\n${stderr}`);
                     return;
                 }
 
-                client.socket.call('log',`output:\n${stdout}`);
+                client.socket.call('log', `output:\n${stdout}`);
             });
         },
-        
-        log: function(server,client,data)
-        {
+
+        log: function (server, client, data) {
             console.log(client.request.socket.remoteAddress + '> ' + (data.message ?? JSON.stringify(data)));
         },
-        ['@register']: (server, client, data) =>
-        {
+        ['@register']: (server, client, data) => {
             data.username ??= data[0];
             data.password ??= data[1];
-            if(!data.username || !data.password)
-            {
-                client.socket.call('log',{message:'username or password not found.'});
+            if (!data.username || !data.password) {
+                client.socket.call('log', { message: 'username or password not found.' });
                 return;
             }
-            else if(client.username && server.users[client.username] && server.users[client.username].logged == true)
-            {
-                client.socket.call('log',{message:'you are already logged in.'});
+            else if (client.username && server.users[client.username] && server.users[client.username].logged == true) {
+                client.socket.call('log', { message: 'you are already logged in.' });
             }
 
-            if(server.users[data.username])
-            {
-                client.socket.call('log',{message:'user already exists.'});
+            if (server.users[data.username]) {
+                client.socket.call('log', { message: 'user already exists.' });
                 return;
             }
-            else
-            {
-                server.users[data.username] = new User(data.username,data.password);
-                client.socket.call('log',{message:'user registered.'});
+            else {
+                server.users[data.username] = new User(data.username, data.password);
+                client.socket.call('log', { message: 'user registered.' });
             }
             client.socket.call('log', { message: 'new user added: ' + data.username });
-            server.plugin['@login'](server,client,[data.username,data.password]);
+            server.plugin['@login'](server, client, [data.username, data.password]);
         },
-        ['@login']: (server, client, data) =>
-        {
+        ['@login']: (server, client, data) => {
             data.username ??= data[0];
             data.password ??= data[1];
-            if(!data.username || !data.password)
-            {
-                client.socket.call('log',{message:'username or password not found.'});
+            if (!data.username || !data.password) {
+                client.socket.call('log', { message: 'username or password not found.' });
                 return;
             }
-            else if(client.username && server.users[client.username] && server.users[client.username].logged == true)
+            else if ((client.username && server.users[client.username] && server.users[client.username].logged == true) || (data.username && server.users[data.username] && server.users[data.username].logged == true))
             {
-                client.socket.call('log',{message:'you are already logged in.'});
+                client.socket.call('log', { message: 'you are already logged in.' });
+                return;
             }
 
-            if(server.users[data.username])
-            {
-                if(server.users[data.username].password == data.password)
-                {
-                    client.socket.call('log',{message:'welcome ' + data.username});
+            if (server.users[data.username]) {
+                if (server.users[data.username].password == data.password) {
+                    client.socket.call('log', { message: 'welcome ' + data.username });
                     client.username = data.username;
                     server.users[data.username].logged = true;
                     server.users[data.username].ip = client.request.socket.remoteAddress;
                 }
-                else
-                {
-                    client.socket.call('log',{message:'wrong password.'});
+                else {
+                    client.socket.call('log', { message: 'wrong password.' });
                 }
             }
-            else
-            {
-                client.socket.call('log',{message:'user not found.'});
+            else {
+                client.socket.call('log', { message: 'user not found.' });
             }
         },
-        su: (server, client, data) =>
-        {
+        su: (server, client, data) => {
             data.key ??= data[0];
-            if(data.key == server.suKey)
-            {
-                client.socket.call('log',{message:'su mode enabled.'});
+            if (data.key == server.suKey) {
+                client.socket.call('log', { message: 'su mode enabled.' });
                 server.users[client.username].su = true;
             }
-            else
-            {
-                client.socket.call('log',{message:'wrong key.'});
+            else {
+                client.socket.call('log', { message: 'wrong key.' });
             }
         }
     }
@@ -218,65 +262,52 @@ export const std =
 //--------------------------------------------
 
 
-export class Client 
-{
-    plugin = async function(_plugin)
-    {
-        if(_plugin.client)
-        {
+export class Client {
+    plugin = async function (_plugin) {
+        if (_plugin.client) {
             _plugin = _plugin.client;
         }
 
-        for(let i in _plugin)
-        {
-            if(i == 'init')
-            {
+        for (let i in _plugin) {
+            if (i == 'init') {
                 _plugin[i](this);
             }
-            else
-            {
+            else {
                 this.plugin[i] = _plugin[i];
             }
-        }   
+        }
     }
 
-    call = function(id, data)
-    {
+    call = function (id, data) {
         this.socket.send(JSON.stringify({
             id: id,
             data: data
         }))
     }
 
-    selfCall = function(id, data)
-    {
-        this.plugin[id](this,data)
+    selfCall = function (id, data) {
+        this.plugin[id](this, data)
     }
-    
-    constructor(ipaddr,callback)
-    {
+
+    constructor(ipaddr, callback) {
         this.socket = new WebSocket.WebSocket('ws://' + (ipaddr) + '/');
 
 
-        this.socket.addEventListener('open', (event) => 
-        {
-            callback(this.socket,'');
+        this.socket.addEventListener('open', (event) => {
+            callback(this.socket, '');
         });
 
-        this.socket.addEventListener('close', (event) => 
-        {
+        this.socket.addEventListener('close', (event) => {
             //rl.close();
-            this.selfCall('log',{message:'you have lost connection with the server.'});
+            this.selfCall('log', { message: 'you have lost connection with the server.' });
             this.socket.close();
             process.exit();
         });
 
-        this.socket.addEventListener('message', (event) => 
-        {
-            let data = JSON.parse(event.data);
-            if(data.id && this.plugin[data.id])
-            {
-                this.selfCall(data.id,data.data);
+        this.socket.addEventListener('message', (event) => {
+            let data = this._key ? JSON.parse(decrypt(event.data, this._key)) : JSON.parse(event.data);
+            if (data.id && this.plugin[data.id]) {
+                this.selfCall(data.id, data.data);
             }
         });
     }
@@ -291,116 +322,102 @@ export class Client
 //--------------------------------------------
 
 
-export class Server 
-{
+export class Server {
     clients = []
     users = {}
     suKey = genKey(16);
-    plugin = async function(_plugin)
-    {
-        if(_plugin.server)
-        {
+    plugin = async function (_plugin) {
+        if (_plugin.server) {
             _plugin = _plugin.server;
         }
 
-        for(let i in _plugin)
-        {
-            if(i == 'init')
-            {
+        for (let i in _plugin) {
+            if (i == 'init') {
                 _plugin[i](this);
             }
-            else
-            {
+            else {
                 this.plugin[i] = _plugin[i];
             }
-        }   
+        }
     }
-    constructor(port='8080')
-    {
+    constructor(port = '8080') {
         const server = new WebSocket.WebSocketServer({ port: port });
-            
-        server.on('connection', (socket,request) => 
-        {
-            const client = 
+
+        server.on('connection', (socket, request) => {
+            const client =
             {
                 socket: socket,
                 request: request,
                 ip: request.socket.remoteAddress,
-                username: null
+                username: null,
+                _key: null
             };
             this.clients.push(client);
-            socket.call = function(id, data)
-            {
-                socket.send(JSON.stringify({
-                    id: id,
-                    data: data
-                }))
+            socket.call = function (id, data) {
+                let message = JSON.stringify({ id: id, data: data });
+                if (typeof (client._key) == 'string') {
+                    message = encrypt(message, client._key);
+                    console.log(message)
+                }
+                socket.send(message);
             }
-            console.log('client '+ request.socket.remoteAddress + ' connected.');
-            
-            socket.on('message', async (message) => 
-            {
+            let new_key = createCryptoKey();
+            socket.call('setKey', { key: new_key });
+            client._key = new_key;
+            console.log('client ' + request.socket.remoteAddress + ' connected.');
+
+            socket.on('message', async (message) => {
                 let data = JSON.parse(message);
-                if(data.id)
-                {
+                if (data.id) {
                     let fname;
-                    
-                    if(typeof(this.plugin[data.id]) == 'function' && data.id[0] != '$' && data.id[0] != '@')
-                    {
-                        if(!this.users[client.username] && this.users[client.username].logged == false && this.users[client.username].ip !== client.request.socket.remoteAddress)
-                        {
-                            socket.call('log',{message:'you are not logged in.'});
+
+                    if (typeof (this.plugin[data.id]) == 'function' && data.id[0] != '$' && data.id[0] != '@') {
+                        if (!this.users[client.username] && this.users[client.username].logged == false && this.users[client.username].ip !== client.request.socket.remoteAddress) {
+                            socket.call('log', { message: 'you are not logged in.' });
                             return;
                         }
                         else
                             fname = data.id;
                     }
-                    else if(typeof(this.plugin['$' + data.id]) == 'function' || (data.id[0] == '$' && typeof(this.plugin[data.id.slice(1)]) == 'function'))
-                    {
-                        if(!this.users[client.username] && this.users[client.username].logged == false && this.users[client.username].ip !== client.request.socket.remoteAddress)
-                        {
-                            socket.call('log',{message:'you are not logged in.'});
+                    else if (typeof (this.plugin['$' + data.id]) == 'function' || (data.id[0] == '$' && typeof (this.plugin[data.id.slice(1)]) == 'function')) {
+                        if (!this.users[client.username] && this.users[client.username].logged == false && this.users[client.username].ip !== client.request.socket.remoteAddress) {
+                            socket.call('log', { message: 'you are not logged in.' });
                             return;
                         }
-                        else if(!this.users[client.username].su)
-                        {
-                            socket.call('log',{message:'you are not su.'});
+                        else if (!this.users[client.username].su) {
+                            socket.call('log', { message: 'you are not su.' });
                             return;
                         }
                         else
                             fname = '$' + data.id;
                     }
-                    else if(typeof(this.plugin['@' + data.id]) == 'function' || (data.id[0] == '@' && typeof(this.plugin[data.id.slice(1)]) == 'function'))
-                    {
+                    else if (typeof (this.plugin['@' + data.id]) == 'function' || (data.id[0] == '@' && typeof (this.plugin[data.id.slice(1)]) == 'function')) {
                         fname = '@' + data.id;
                     }
-                    else
-                    {
-                        socket.call('log',{message:'unknown command: '+ data.id});
+                    else {
+                        socket.call('log', { message: 'unknown command: ' + data.id });
                         return;
                     }
-                    
-                    this.plugin[fname](this,client,data.data ?? {});
+
+                    this.plugin[fname](this, client, data.data ?? {});
                 }
             });
 
-            socket.on('close', () => 
-            {
-                this.clients.splice(this.clients.indexOf(client),1);
-                this.users[client.username].logged = false;
-                console.log('client '+ request.socket.remoteAddress + ' disconnected.');
+            socket.on('close', () => {
+                this.clients.splice(this.clients.indexOf(client), 1);
+                if (client.username && this.users[client.username].logged) {
+                    this.users[client.username].logged = false;
+                }
+                console.log('client ' + request.socket.remoteAddress + ' disconnected.');
                 socket.close();
             });
         });
         console.log('server running on port 8080');
         console.log("Master key: " + this.suKey);
         let backupThis = this;
-        function serverConsole() 
-        {
-            rl.question('>> ', (input) => 
-            {
-                if (input === 'exit') 
-                {
+        function serverConsole() {
+            rl.question('>> ', (input) => {
+                if (input === 'exit') {
                     rl.close();
                     process.exit();
                     return;
@@ -408,8 +425,7 @@ export class Server
                 let args = input.split(' ');
                 let cmd = args[0];
                 args = args.slice(1);
-                if(!backupThis.plugin[cmd])
-                {
+                if (!backupThis.plugin[cmd]) {
                     console.log('unknown command: ' + cmd);
                     serverInput();
                     return;
