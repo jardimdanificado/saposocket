@@ -2,6 +2,7 @@ import * as WebSocket from 'ws';
 import * as readline from 'readline';
 import { exec } from 'child_process';
 
+const __ascii = `!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\`abcdefghijklmnopqrstuvwxyz{|}~¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽžÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽž\\n\\r\\t\\v\\f\\b\\0`;
 const rl = readline.createInterface(
     {
         input: process.stdin,
@@ -9,17 +10,22 @@ const rl = readline.createInterface(
     }
 );
 
-class User {
-    constructor(username, password, su = false) {
+class User 
+{
+    constructor(username, password, su = false) 
+    {
         this.username = username;
         this.password = password;
         this.su = su;
     }
 }
 
-const getInput = async (callback) => {
-    return rl.question('>> ', (input) => {
-        if (callback) {
+const getInput = async (callback) => 
+{
+    return rl.question('>> ', (input) => 
+    {
+        if (callback) 
+        {
             callback(input)
         }
         return input;
@@ -35,7 +41,7 @@ const getInput = async (callback) => {
 //--------------------------------------------
 
 const genKey = function (size) {
-    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%¨&*()_-=[{]}\\|;:\'\"<,>.?/';
+    const caracteres = __ascii;
     let result = '';
 
     for (let i = 0; i < size; i++) {
@@ -59,7 +65,7 @@ const genKey = function (size) {
 // Função para criar uma chave com permutação dos caracteres
 function createCryptoKey() 
 {
-    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%¨&*()_-=[{]}\\|;:\'\"<,>.?/ ';
+    const caracteres = __ascii + ' ';
     const shuffledCaracteres = shuffleString(caracteres);
     return shuffledCaracteres;
 }
@@ -139,10 +145,13 @@ export const std =
         {
             client._key = data.key;
         },
-        log: function (client, data) {
+        log: function (client, data) 
+        {
             let content = 'server> ' + (data.message ?? JSON.stringify(data)) + '\n' + '>> ';
-            for (let i = content.length - 1; i >= 0; i--) {
-                if (content[i] == '\n') {
+            for (let i = content.length - 1; i >= 0; i--) 
+            {
+                if (content[i] == '\n') 
+                {
                     content.slice(0, i);
                     break;
                 }
@@ -192,11 +201,14 @@ export const std =
                 client.socket.call('log', `output:\n${stdout}`);
             });
         },
-        $setsukey: function (server, client, data) {
-            server.suKey = genKey(data.keysize ?? data[0] ?? 16);
+        $setsukey: function (server, client, data) 
+        {
+            server.suKey = data.key ?? data[0] ?? genKey(16);
             server.users['root'].password = server.suKey;
+            client.socket.call('log', { message: 'new key:' + server.suKey });
         },
-        $randomizekey: function (server, client, data) {
+        $randomizekey: function (server, client, data) 
+        {
             server.suKey = genKey(data.keysize ?? data[0] ?? 16);
             server.users['root'].password = server.suKey;
             client.socket.call('log', { message: 'new key:' + server.suKey });
@@ -303,6 +315,10 @@ export const std =
             else {
                 client.socket.call('log', { message: 'wrong key.' });
             }
+        },
+        $getsukey: (server, client, data) => 
+        {
+            client.socket.call('log', { message: 'current server key: ' + server.suKey });
         }
     }
 }
@@ -508,7 +524,11 @@ export class Server {
                 let args = input.split(' ');
                 let cmd = args[0];
                 args = args.slice(1);
-                if (!backupThis.plugin[cmd]) 
+                if (backupThis.plugin['$' + cmd])
+                    cmd = '$' + cmd;
+                else if (backupThis.plugin['@' + cmd])
+                    cmd = '@' + cmd;
+                else if (!backupThis.plugin[cmd]) 
                 {
                     console.log('unknown command: ' + cmd);
                     serverConsole();
