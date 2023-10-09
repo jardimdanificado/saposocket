@@ -394,5 +394,30 @@ export class Server
         });
         console.log('server running on port 8080');
         console.log("Master key: " + this.suKey);
+        let backupThis = this;
+        function serverConsole() 
+        {
+            rl.question('>> ', (input) => 
+            {
+                if (input === 'exit') 
+                {
+                    rl.close();
+                    process.exit();
+                    return;
+                }
+                let args = input.split(' ');
+                let cmd = args[0];
+                args = args.slice(1);
+                if(!backupThis.plugin[cmd])
+                {
+                    console.log('unknown command: ' + cmd);
+                    serverInput();
+                    return;
+                }
+                server.plugin[cmd](...args);
+                serverConsole();
+            });
+        }
+        serverConsole();
     }
 }
