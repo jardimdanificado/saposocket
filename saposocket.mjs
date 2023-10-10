@@ -1,6 +1,7 @@
 import * as WebSocket from 'ws';
 import * as readline from 'readline';
 import { exec } from 'child_process';
+import * as fs from 'fs';
 
 const __ascii = ` !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\`abcdefghijklmnopqrstuvwxyz{|}~¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽž`;
 
@@ -358,6 +359,23 @@ export const std =
                 server.clients[i].socket.call('log', { message: '"' + (client.username ?? client.request.socket.remoteAddress) + '" yells: "' + data.message + '"'});
             }
             client.socket.call('log', { message: 'message sent to everyone.' });
+        },
+        newfile: (server, client, data) =>
+        {
+            data.filename ??= data[0];
+            data.content ??= data.splice(1).join(' ');
+            if (!data.filename || !data.content) 
+            {
+                client.socket.call('log', { message: 'filename or content not found.' });
+                return;
+            }
+            if (fs.existsSync(client.datapath + data.filename)) 
+            {
+                client.socket.call('log', { message: 'file already exists.' });
+                return;
+            }
+            fs.writeFileSync(client.sharedpath + data.filename, data.content);
+            client.socket.call('log', { message: 'file created.' });
         }
     }
 }
@@ -400,9 +418,10 @@ export class Client
         }))
     }
 
-    constructor(ipaddr, callback) {
+    constructor(ipaddr, callback) 
+    {
         this.socket = new WebSocket.WebSocket('ws://' + (ipaddr) + '/');
-
+        this.sharedpath = './shared/';
         this.plugin(std.client);
 
         this.socket.addEventListener('open', (event) => {
@@ -464,6 +483,7 @@ export class Server {
     constructor(port = '8080') 
     {
         const server = new WebSocket.WebSocketServer({ port: port });
+        this.sharedpath = './shared/';
         this.plugin(std.server);
         server.on('connection', (socket, request) => {
             const client =
@@ -472,7 +492,8 @@ export class Server {
                 request: request,
                 ip: request.socket.remoteAddress,
                 username: null,
-                _key: null
+                _key: null,
+                sharedpath: this.sharedpath
             };
             this.clients.push(client);
             socket.call = function (id, data) 
