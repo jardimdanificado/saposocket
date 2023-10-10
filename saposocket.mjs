@@ -2,7 +2,8 @@ import * as WebSocket from 'ws';
 import * as readline from 'readline';
 import { exec } from 'child_process';
 
-const __ascii = `!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\`abcdefghijklmnopqrstuvwxyz{|}~¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽžÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽž\\n\\r\\t\\v\\f\\b\\0`;
+const __ascii = ` !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\`abcdefghijklmnopqrstuvwxyz{|}~¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽž`;
+
 const rl = readline.createInterface(
     {
         input: process.stdin,
@@ -40,11 +41,13 @@ const getInput = async (callback) =>
 //--------------------------------------------
 //--------------------------------------------
 
-const genKey = function (size) {
+const genKey = function (size) 
+{
     const caracteres = __ascii;
     let result = '';
 
-    for (let i = 0; i < size; i++) {
+    for (let i = 0; i < size; i++) 
+    {
         const indiceAleatorio = Math.floor(Math.random() * caracteres.length);
         result += caracteres.charAt(indiceAleatorio);
     }
@@ -55,9 +58,9 @@ const genKey = function (size) {
 
 //--------------------------------------------
 //--------------------------------------------
-//STD
-//STD
-//STD
+//CRYPTO
+//CRYPTO
+//CRYPTO
 //--------------------------------------------
 //--------------------------------------------
 
@@ -65,7 +68,7 @@ const genKey = function (size) {
 // Função para criar uma chave com permutação dos caracteres
 function createCryptoKey() 
 {
-    const caracteres = __ascii + ' ';
+    const caracteres = __ascii;
     const shuffledCaracteres = shuffleString(caracteres);
     return shuffledCaracteres;
 }
@@ -82,49 +85,52 @@ function shuffleString(str)
     return arr.join('');
 }
 
-// Função para criptografar uma mensagem usando a chave
-function encrypt(message, key) 
+  // Função auxiliar para dividir uma string em pedaços de tamanho específico
+function splitString(input, chunkSize) 
 {
+    const regex = new RegExp(`.{1,${chunkSize}}`, 'g');
+    return input.match(regex) || [];
+}
+// Função para criptografar uma mensagem usando a chave
+function encrypt(message, key) {
     let encryptedMessage = '';
-    for (let i = 0; i < message.length; i++) 
-    {
-        const char = message.charAt(i);
-        const charIndex = key.indexOf(char);
-        if (charIndex !== -1) 
-        {
-            const encryptedChar = key[(charIndex + i) % key.length];
-            encryptedMessage += encryptedChar;
-        } 
-        else 
-        {
-            encryptedMessage += char;
-        }
+    if (typeof key === 'string') {
+        key = key.split('').map(char => char.charCodeAt(0));
+    }
+
+    let currentKeyIndex = 0;
+
+    for (let i = 0; i < message.length; i++) {
+        const charValue = message.charCodeAt(i);
+        const keyCharValue = key[currentKeyIndex];
+        const encryptedChar = String.fromCharCode(parseInt((charValue + keyCharValue).toString().padStart(3, '0')));
+        encryptedMessage += encryptedChar;
+
+        currentKeyIndex = (currentKeyIndex + 1) % key.length;
     }
     return encryptedMessage;
 }
 
 // Função para descriptografar uma mensagem usando a chave
-function decrypt(encryptedMessage, key) 
-{
+function decrypt(encryptedMessage, key) {
     let decryptedMessage = '';
-    for (let i = 0; i < encryptedMessage.length; i++) 
-    {
-        const char = encryptedMessage.charAt(i);
-        const charIndex = key.indexOf(char);
-        if (charIndex !== -1) 
-        {
-            const decryptedCharIndex = (charIndex - i + key.length) % key.length;
-            decryptedMessage += key[decryptedCharIndex];
-        } 
-        else 
-        {
-            decryptedMessage += char;
-        }
+    if (typeof key === 'string') {
+        key = key.split('').map(char => char.charCodeAt(0));
+    }
+
+    let currentKeyIndex = 0;
+
+    for (let i = 0; i < encryptedMessage.length; i++) {
+        const charValue = encryptedMessage.charCodeAt(i);
+        const keyCharValue = key[currentKeyIndex];
+        const decryptedChar = String.fromCharCode(charValue - keyCharValue);
+        decryptedMessage += decryptedChar;
+
+        currentKeyIndex = (currentKeyIndex + 1) % key.length;
     }
     return decryptedMessage;
 }
 
-
 //--------------------------------------------
 //--------------------------------------------
 //STD
@@ -133,15 +139,15 @@ function decrypt(encryptedMessage, key)
 //--------------------------------------------
 //--------------------------------------------
 
-// @plugin = anyone can use
-// plugin  = only logged users can use
+// plugin  = anyone can use
+// @plugin = only logged users can use
 // $plugin = only su can use
 
 export const std =
 {
     client:
     {
-        setKey: function (client, data) 
+        ['@setKey']: function (client, data) 
         {
             client._key = data.key;
         },
@@ -213,7 +219,7 @@ export const std =
             server.users['root'].password = server.suKey;
             client.socket.call('log', { message: 'new key:' + server.suKey });
         },
-        setpassword: function (server, client, data) 
+        ['@setpassword']: function (server, client, data) 
         {
             data.oldpassword ??= data[0];
             data.password ??= data[1];
@@ -235,19 +241,16 @@ export const std =
             let content = client.request.socket.remoteAddress + '> ' + (data.message ?? JSON.stringify(data)) + '\n' + '>> ';
             process.stdout.write(content);
         },
-        help: function (server, client, data)
+        ['@help']: function (server, client, data)
         {
             let keys = Object.keys(server.plugin)
-            //console.log(server, client, data)
-            //console.trace();
             if(!client.username || (client.username &&( !server.users[client.username] || (server.users[client.username] && !server.users[client.username].su))))
             {
-                console.log(keys)
                 keys = keys.filter((value) => !value.includes('$'));
             }
             client.socket.call('log', { message: 'commands: ' + keys.join(', ') });
         },
-        ['@login']: (server, client, data) => 
+        login: (server, client, data) => 
         {
             data.username ??= data[0];
             data.password ??= data[1];
@@ -281,7 +284,7 @@ export const std =
                 client.socket.call('log', { message: 'user not found.' });
             }
         },
-        ['@register']: (server, client, data) => 
+        register: (server, client, data) => 
         {
             data.username ??= data[0];
             data.password ??= data[1];
@@ -448,15 +451,22 @@ export class Server {
                 {
                     let fname;
 
-                    if (typeof (this.plugin[data.id]) == 'function' && data.id[0] != '$' && data.id[0] != '@') {
-                        if (this.users[client.username] && this.users[client.username].logged == false && this.users[client.username].ip !== client.request.socket.remoteAddress) {
+                    if (typeof (this.plugin['@' + data.id]) == 'function' || (data.id[0] == '@' && typeof (this.plugin[data.id.slice(1)]) == 'function')) 
+                    {
+                        if (!this.users[client.username]) 
+                        {
+                            socket.call('log', { message: 'you are not logged in.' });
+                            return;
+                        }
+                        else if (this.users[client.username] && this.users[client.username].logged == false && this.users[client.username].ip !== client.request.socket.remoteAddress) {
                             socket.call('log', { message: 'you are not logged in.' });
                             return;
                         }
                         else
-                            fname = data.id;
+                            fname = '@' + data.id;
                     }
-                    else if (typeof (this.plugin['$' + data.id]) == 'function' || (data.id[0] == '$' && typeof (this.plugin[data.id.slice(1)]) == 'function')) {
+                    else if (typeof (this.plugin['$' + data.id]) == 'function' || (data.id[0] == '$' && typeof (this.plugin[data.id.slice(1)]) == 'function')) 
+                    {
                         if (!this.users[client.username] && this.users[client.username].logged == false && this.users[client.username].ip !== client.request.socket.remoteAddress) {
                             socket.call('log', { message: 'you are not logged in.' });
                             return;
@@ -468,10 +478,12 @@ export class Server {
                         else
                             fname = '$' + data.id;
                     }
-                    else if (typeof (this.plugin['@' + data.id]) == 'function' || (data.id[0] == '@' && typeof (this.plugin[data.id.slice(1)]) == 'function')) {
-                        fname = '@' + data.id;
+                    else if (typeof (this.plugin[data.id]) == 'function' && (data.id[0] !== '@' && data.id[0] !== '$')) 
+                    {
+                        fname = data.id;
                     }
-                    else {
+                    else 
+                    {
                         socket.call('log', { message: 'unknown command: ' + data.id });
                         return;
                     }
