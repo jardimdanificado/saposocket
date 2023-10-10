@@ -85,6 +85,7 @@ function shuffleString(str)
     return arr.join('');
 }
 
+
   // Função auxiliar para dividir uma string em pedaços de tamanho específico
 function splitString(input, chunkSize) 
 {
@@ -417,7 +418,7 @@ export class Client
 
         this.socket.addEventListener('message', (event) => {
             if (event.data.includes('$KEY$')) {
-                this._key = event.data.slice(5);
+                this._key = event.data.slice('$KEY$'.length);
                 return;
             }
             else
