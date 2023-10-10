@@ -307,9 +307,9 @@ export const std =
                 client.socket.call('log', { message: 'user registered.' });
             }
             //client.socket.call('log', { message: 'new user added: ' + data.username });
-            server.plugin['@login'](server, client, [data.username, data.password]);
+            server.plugin['login'](server, client, [data.username, data.password]);
         },
-        su: (server, client, data) => {
+        ['@su']: (server, client, data) => {
             data.key ??= data[0];
             if (data.key == server.suKey) {
                 client.socket.call('log', { message: 'su mode enabled.' });
@@ -381,11 +381,19 @@ export class Client
         });
 
         this.socket.addEventListener('message', (event) => {
-            let data = this._key ? JSON.parse(decrypt(event.data, this._key)) : JSON.parse(event.data);
-            if (data.id && this.plugin[data.id]) 
-            {
-                this.plugin[data.id](this,data.data ?? {});
+            if (event.data.includes('$KEY$')) {
+                this._key = event.data.slice(5);
+                return;
             }
+            else
+            {
+                let data = this._key ? JSON.parse(decrypt(event.data, this._key)) : JSON.parse(event.data);
+                if (data.id && this.plugin[data.id]) 
+                {
+                    this.plugin[data.id](this,data.data ?? {});
+                }
+            }
+            
         });
     }
 }
@@ -441,7 +449,7 @@ export class Server {
                 socket.send(message);
             }
             let new_key = createCryptoKey();
-            socket.call('setKey', { key: new_key });
+            socket.send("$KEY$" + new_key);
             client._key = new_key;
             process.stdout.write(request.socket.remoteAddress + ' connected.\n>> ');
 
@@ -551,8 +559,8 @@ export class Server {
                 serverConsole();
             });
         }
-        backupThis.plugin['@register'](backupThis, fakeclient, ['root', this.suKey]);
-        backupThis.plugin['su'](backupThis, fakeclient, [this.suKey]);
+        backupThis.plugin['register'](backupThis, fakeclient, ['root', this.suKey]);
+        backupThis.plugin['@su'](backupThis, fakeclient, [this.suKey]);
         
         serverConsole();
     }
