@@ -322,6 +322,41 @@ export const std =
         $getsukey: (server, client, data) => 
         {
             client.socket.call('log', { message: 'current server key: ' + server.suKey });
+        },
+        tell: (server, client, data) =>
+        {
+            data.username ??= data[0];
+            data.message ??= data.splice(1).join(' ');
+            if (!data.message) 
+            {
+                client.socket.call('log', { message: 'no message found.' });
+                return;
+            }
+            for (let i in server.clients) 
+            {
+                if (server.clients[i].username == data.username || server.clients[i].request.socket.remoteAddress == data.username) 
+                {
+                    server.clients[i].socket.call('log', { message: '"' + ( client.username ?? client.request.socket.remoteAddress) + '" told you: "' + data.message + '"'});
+                    client.socket.call('log', { message: 'message sent to ' + data.username + '.' });
+                    process.stdout.write(client.username + ' told ' + data.username + ': ' + data.message + '\n>> ');   
+                    return;
+                }
+            }
+            client.socket.call('log', { message: 'user not found.' });
+        },
+        yell: (server, client, data) =>
+        {
+            data.message ??= data.join(' ');
+            if (!data.message) 
+            {
+                client.socket.call('log', { message: 'no message found.' });
+                return;
+            }
+            for (let i in server.clients) 
+            {
+                server.clients[i].socket.call('log', { message: '"' + (client.username ?? client.request.socket.remoteAddress) + '" yells: "' + data.message + '"'});
+            }
+            client.socket.call('log', { message: 'message sent to everyone.' });
         }
     }
 }
@@ -555,7 +590,7 @@ export class Server {
                     return;
                 }
                 
-                backupThis.plugin[cmd](backupThis, fakeclient,{...args});
+                backupThis.plugin[cmd](backupThis, fakeclient,(args[0] ? [...args] : {...args}));
                 serverConsole();
             });
         }
