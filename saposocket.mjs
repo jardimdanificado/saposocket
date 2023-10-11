@@ -95,41 +95,38 @@ function splitString(input, chunkSize)
 }
 // Função para criptografar uma mensagem usando a chave
 function encrypt(message, key) {
-    let encryptedMessage = '';
     if (typeof key === 'string') {
         key = key.split('').map(char => char.charCodeAt(0));
     }
 
-    let currentKeyIndex = 0;
+    const messageBuffer = new TextEncoder().encode(message);
+    const encryptedBuffer = new Uint8Array(messageBuffer.length);
 
-    for (let i = 0; i < message.length; i++) {
-        const charValue = message.charCodeAt(i);
-        const keyCharValue = key[currentKeyIndex];
-        const encryptedChar = String.fromCharCode(parseInt((charValue + keyCharValue).toString().padStart(3, '0')));
-        encryptedMessage += encryptedChar;
-
-        currentKeyIndex = (currentKeyIndex + 1) % key.length;
+    for (let i = 0; i < messageBuffer.length; i++) {
+        const charValue = messageBuffer[i];
+        const keyCharValue = key[i % key.length];
+        const encryptedValue = charValue + keyCharValue;
+        encryptedBuffer[i] = encryptedValue;
     }
-    return encryptedMessage;
+
+    return encryptedBuffer;
 }
 
-// Função para descriptografar uma mensagem usando a chave
 function decrypt(encryptedMessage, key) {
-    let decryptedMessage = '';
     if (typeof key === 'string') {
         key = key.split('').map(char => char.charCodeAt(0));
     }
 
-    let currentKeyIndex = 0;
+    const decryptedBuffer = new Uint8Array(encryptedMessage.length);
 
     for (let i = 0; i < encryptedMessage.length; i++) {
-        const charValue = encryptedMessage.charCodeAt(i);
-        const keyCharValue = key[currentKeyIndex];
-        const decryptedChar = String.fromCharCode(charValue - keyCharValue);
-        decryptedMessage += decryptedChar;
-
-        currentKeyIndex = (currentKeyIndex + 1) % key.length;
+        const charValue = encryptedMessage[i];
+        const keyCharValue = key[i % key.length];
+        const decryptedValue = charValue - keyCharValue;
+        decryptedBuffer[i] = decryptedValue;
     }
+
+    const decryptedMessage = new TextDecoder().decode(decryptedBuffer);
     return decryptedMessage;
 }
 
