@@ -1,6 +1,5 @@
 import * as WebSocket from 'ws';
 import * as readline from 'readline';
-import { exec } from 'child_process';
 import * as fs from 'fs';
 
 const __ascii = ` !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\`abcdefghijklmnopqrstuvwxyz{|}~¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽž`;
@@ -93,6 +92,7 @@ function splitString(input, chunkSize)
     const regex = new RegExp(`.{1,${chunkSize}}`, 'g');
     return input.match(regex) || [];
 }
+
 // Função para criptografar uma mensagem usando a chave
 function encrypt(message, key) 
 {
@@ -153,28 +153,6 @@ export const std =
 {
     server:
     {
-        $h: function (server, serverclient, data) {
-            let cmd = data.cmd ?? (data.length > 0 ? data.reduce((result, currentletter) => result + ' ' + currentletter) : 'echo no input');
-            // Executa o comando e captura o stdout
-            exec(cmd, (erro, stdout, stderr) => 
-            {
-                if (erro) 
-                {
-                    console.error(`runtime error: ${erro.message}`);
-                    serverclient.socket.call('log', `error:\n${erro.message}`);
-                    return;
-                }
-
-                if (stderr) 
-                {
-                    console.error(`command error: ${stderr}`);
-                    serverclient.socket.call('log', `error:\n${stderr}`);
-                    return;
-                }
-
-                serverclient.socket.call('log', `output:\n${stdout}`);
-            });
-        },
         $setsukey: function (server, serverclient, data) 
         {
             server.suKey = data.key ?? data[0] ?? genKey(16);
@@ -289,10 +267,6 @@ export const std =
             {
                 serverclient.socket.call('log', 'wrong key.' );
             }
-        },
-        $getsukey: (server, serverclient, data) => 
-        {
-            serverclient.socket.call('log', 'current server key: ' + server.suKey );
         },
         tell: (server, serverclient, data) =>
         {
