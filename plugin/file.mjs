@@ -2,88 +2,88 @@ import * as fs from 'fs';
 
 export const server = 
 {
-    newfile: (server, client, data) =>
+    newfile: (server, serverclient, data) =>
     {
         data.filename ??= data[0];
         data.content ??= data.splice(1).join(' ');
         if (!data.filename || !data.content) 
         {
-            client.socket.call('log', 'filename or content not found.');
+            serverclient.socket.call('log', 'filename or content not found.');
             return;
         }
-        if (fs.existsSync(client.datapath + data.filename)) 
+        if (fs.existsSync(serverclient.datapath + data.filename)) 
         {
-            client.socket.call('log', 'file already exists.');
+            serverclient.socket.call('log', 'file already exists.');
             return;
         }
-        fs.writeFileSync(client._file.sharedpath + data.filename, data.content);
-        client.socket.call('log', 'file created.');
+        fs.writeFileSync(serverclient._file.sharedpath + data.filename, data.content);
+        serverclient.socket.call('log', 'file created.');
     },
-    freceive: function(server,client,data)
+    filereceive: function(server,serverclient,data)
     {
         if (server._file.allowReceive == false) 
         {
             return;
         }
-        fs.writeFileSync(server._file.sharedpath + data.filename, data.buffer);
-        client.socket.call('log', 'file written: ' + data.destiny);
+        fs.writeFileSync(server._file.sharedpath + data.filename, Buffer.from(data.buffer));
+        serverclient.socket.call('log', 'file written: ' + data.filename);
     },
-    fsend: function(server,client,data)
+    filesend: function(server,serverclient,data)
     {
         data.filename ??= data[0];
-        if (client._file.allowSend == false) 
+        if (serverclient._file.allowSend == false) 
         {
             return;
         }
         data.filename ??= data[0];
-        let buffer = fs.readFileSync(client._file.sharedpath + data.filename);
+        let buffer = fs.readFileSync(serverclient._file.sharedpath + data.filename);
         
-        client.socket.call('freceive', {filename: data.filename, buffer: buffer });
+        serverclient.socket.call('filereceive', {filename: data.filename, buffer: buffer });
     },
-    fetch: function(server,client,data)
+    fetch: function(server,serverclient,data)
     {
         if (server._file.allowReceive == false) 
         {
             return;
         }
         data.filename ??= data[0];
-        client.socket.call('fsend', {filename: data.filename});
+        serverclient.socket.call('filesend', {filename: data.filename});
     },
-    fetchfrom: function(server,_client,data)
+    fetchfrom: function(server,_serverclient,data)
     {
         if (server._file.allowReceive == false) 
         {
             return;
         }
-        data.from = _client.username;
+        data.from = _serverclient.username;
         data.to ??= data[0];
         data.filename ??= data[1];
-        for (let client of server.clients) 
+        for (let serverclient of server.clients) 
         {
-            if (client.username == data.to) 
+            if (serverclient.username == data.to) 
             {
-                client.socket.call('fetchback', {filename: data.filename, to: data.to, from: data.from});
+                serverclient.socket.call('fetchback', {filename: data.filename, to: data.to, from: data.from});
                 return;
             }
             
         }
     },
-    fetchrepass: function(server,client,data)
+    fetchrepass: function(server,serverclient,data)
     {
         if (server._file.allowReceive == false) 
         {
             return;
         }
-        for (let client of server.clients) 
+        for (let serverclient of server.clients) 
         {
-            if (client.username == data.from) 
+            if (serverclient.username == data.from) 
             {
-                client.socket.call('freceive', {filename: data.filename, buffer: data.buffer});
+                serverclient.socket.call('filereceive', {filename: data.filename, buffer: data.buffer});
                 return;
             }
         }
     },
-    init: function(server,client,data)
+    init: function(server,serverclient,data)
     {
         server._file = 
         {
@@ -115,7 +115,7 @@ export const client =
         fs.writeFileSync(client._file.sharedpath + data.filename, data.content);
         client.call('log', 'file created.');
     },
-    freceive: function(client,data)
+    filereceive: function(client,data)
     {
         if (client._file.allowReceive == false) 
         {
@@ -125,7 +125,7 @@ export const client =
         fs.writeFileSync(client._file.sharedpath + data.filename, Buffer.from(data.buffer));
         client.call('log', 'file written: ' + data.filename);
     },
-    fsend: function(client,data)
+    filesend: function(client,data)
     {
         if (client._file.allowSend == false) 
         {
@@ -133,7 +133,7 @@ export const client =
         }
         data.filename ??= data[0];
         let buffer = fs.readFileSync(client._file.sharedpath + data.filename);
-        client.call('freceive', {filename: data.filename, buffer: buffer});
+        client.call('filereceive', {filename: data.filename, buffer: buffer});
     },
     fetchback: function(client,data)
     {
@@ -151,7 +151,7 @@ export const client =
             return;
         }
         data.filename ??= data[0];
-        client.call('fsend', {filename: data.filename});
+        client.call('filesend', {filename: data.filename});
     },
     init: function(client,data)
     {
