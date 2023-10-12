@@ -147,50 +147,10 @@ function decrypt(encryptedMessage, key)
 // plugin  = anyone can use
 // @plugin = only logged users can use
 // $plugin = only su can use
+// .plugin = self use
 
 export const std =
 {
-    client:
-    {
-        ['@setKey']: function (client, data) 
-        {
-            client._key = data.key;
-        },
-        log: function (client, data) 
-        {
-            let content = 'server> ' + JSON.stringify(data) + '\n' + '>> ';
-            for (let i = content.length - 1; i >= 0; i--) 
-            {
-                if (content[i] == '\n') 
-                {
-                    content.slice(0, i);
-                    break;
-                }
-            }
-            process.stdout.write(content);
-        },
-        init: function (client) {
-            client.console = async function () 
-            {
-                let _call = async (input) => 
-                {
-                    if (input === 'exit') 
-                    {
-                        client.socket.close();
-                        rl.close();
-                        process.exit();
-                        return;
-                    }
-                    let args = input.split(' ');
-                    let cmd = args[0];
-                    args = args.slice(1);
-                    client.call(cmd, args);
-                    await getInput(_call);
-                }
-                await getInput(_call);
-            }
-        }
-    },
     server:
     {
         $h: function (server, client, data) {
@@ -367,44 +327,82 @@ export const std =
                 server.clients[i].socket.call('log', '"' + (client.username ?? client.request.socket.remoteAddress) + '" yells: "' + data.message + '"');
             }
             client.socket.call('log', 'message sent to everyone.' );
-        },
-        newfile: (server, client, data) =>
+        }
+    },
+    client:
+    {
+        ['@setKey']: function (client, data) 
         {
-            data.filename ??= data[0];
-            data.content ??= data.splice(1).join(' ');
-            if (!data.filename || !data.content) 
+            client._key = data.key;
+        },
+        log: function (client, data) 
+        {
+            let content = 'server> ' + JSON.stringify(data) + '\n' + '>> ';
+            for (let i = content.length - 1; i >= 0; i--) 
             {
-                client.socket.call('log', 'filename or content not found.');
-                return;
+                if (content[i] == '\n') 
+                {
+                    content.slice(0, i);
+                    break;
+                }
             }
-            if (fs.existsSync(client.datapath + data.filename)) 
+            process.stdout.write(content);
+        },
+        init: function (client) 
+        {
+            client.console = async function () 
             {
-                client.socket.call('log', 'file already exists.');
-                return;
+                let _call = async (input) => 
+                {
+                    if (input === 'exit') 
+                    {
+                        client.socket.close();
+                        rl.close();
+                        process.exit();
+                        return;
+                    }
+                    let args = input.split(' ');
+                    let cmd = args[0];
+                    args = args.slice(1);
+                    if (cmd[0]=='.') 
+                    {
+                        if(client.plugin[cmd])
+                            client.plugin[cmd](client, args);
+                        else if(client.plugin[cmd.slice(1)])
+                            client.plugin[cmd.slice(1)](client, args);
+                    }
+                    else
+                        client.call(cmd, args);
+
+                    await getInput(_call);
+                }
+                await getInput(_call);
             }
-            fs.writeFileSync(client.sharedpath + data.filename, data.content);
-            client.socket.call('log', 'file created.' );
         }
     }
 }
 
 
+
 //--------------------------------------------
 //--------------------------------------------
-//CLIENT
-//CLIENT
-//CLIENT
+//SERVER
+//SERVER
+//SERVER
 //--------------------------------------------
 //--------------------------------------------
 
 
-export class Client 
+export class Server 
 {
+    clients = []
+    users = {}
+    suKey = genKey(16);
     plugin = async function (_plugin) 
     {
-        if (_plugin.client) 
+        if (_plugin.server) 
         {
-            _plugin = _plugin.client;
+            _plugin = _plugin.server;
         }
 
         for (let i in _plugin) 
@@ -413,77 +411,8 @@ export class Client
             {
                 _plugin[i](this);
             }
-            else {
-                this.plugin[i] = _plugin[i];
-            }
-        }
-    }
-
-    call = function (id, data) {
-        this.socket.send(JSON.stringify({
-            id: id,
-            data: data
-        }))
-    }
-
-    constructor(ipaddr, callback) 
-    {
-        this.socket = new WebSocket.WebSocket('ws://' + (ipaddr) + '/');
-        this.sharedpath = './shared/';
-        this.plugin(std.client);
-
-        this.socket.addEventListener('open', (event) => {
-            callback(this.socket, '');
-        });
-
-        this.socket.addEventListener('close', (event) => {
-            //rl.close();
-            this.plugin.log(this, 'you have lost connection with the server.');
-            this.socket.close();
-            process.exit();
-        });
-
-        this.socket.addEventListener('message', (event) => {
-            if (event.data.includes('$KEY$')) {
-                this._key = event.data.slice('$KEY$'.length);
-                return;
-            }
-            else
+            else 
             {
-                let data = this._key ? JSON.parse(decrypt(event.data, this._key)) : JSON.parse(event.data);
-                if (data.id && this.plugin[data.id]) 
-                {
-                    this.plugin[data.id](this,data.data ?? {});
-                }
-            }
-            
-        });
-    }
-}
-
-//--------------------------------------------
-//--------------------------------------------
-//SERVER
-//SERVER
-//SERVER
-//--------------------------------------------
-//--------------------------------------------
-
-
-export class Server {
-    clients = []
-    users = {}
-    suKey = genKey(16);
-    plugin = async function (_plugin) {
-        if (_plugin.server) {
-            _plugin = _plugin.server;
-        }
-
-        for (let i in _plugin) {
-            if (i == 'init') {
-                _plugin[i](this);
-            }
-            else {
                 this.plugin[i] = _plugin[i];
             }
         }
@@ -491,9 +420,9 @@ export class Server {
     constructor(port = '8080') 
     {
         const server = new WebSocket.WebSocketServer({ port: port });
-        this.sharedpath = './shared/';
         this.plugin(std.server);
-        server.on('connection', (socket, request) => {
+        server.on('connection', (socket, request) => 
+        {
             const client =
             {
                 socket: socket,
@@ -501,10 +430,18 @@ export class Server {
                 ip: request.socket.remoteAddress,
                 username: null,
                 _key: null,
-                sharedpath: this.sharedpath
+                _file:
+                {
+                    allowReceive: true,
+                    allowSend: true,
+                    prohibitedFileExtensions: {},
+                    blockedUsers: {},
+                    sharedpath: './shared/'
+                }
             };
             this.clients.push(client);
-            socket.call = function (id, data) 
+            
+            client.socket.call = function (id, data) 
             {
                 let message = JSON.stringify({ id: id, data: data });
                 if (typeof (client._key) == 'string') 
@@ -513,6 +450,7 @@ export class Server {
                 }
                 socket.send(message);
             }
+
             let new_key = createCryptoKey();
             socket.send("$KEY$" + new_key);
             client._key = new_key;
@@ -640,5 +578,83 @@ export class Server {
         backupThis.plugin['@su'](backupThis, fakeclient, [this.suKey]);
         
         serverConsole();
+    }
+}
+
+
+
+//--------------------------------------------
+//--------------------------------------------
+//CLIENT
+//CLIENT
+//CLIENT
+//--------------------------------------------
+//--------------------------------------------
+
+
+export class Client 
+{
+    plugin = async function (_plugin) 
+    {
+        if (_plugin.client) 
+        {
+            _plugin = _plugin.client;
+        }
+
+        for (let i in _plugin) 
+        {
+            if (i == 'init') 
+            {
+                _plugin[i](this);
+            }
+            else {
+                this.plugin[i] = _plugin[i];
+            }
+        }
+    }
+
+    call = function (id, data) 
+    {
+        this.socket.send(JSON.stringify({
+            id: id,
+            data: data
+        }))
+    }
+
+    constructor(ipaddr, callback) 
+    {
+        this.socket = new WebSocket.WebSocket('ws://' + (ipaddr) + '/');
+        
+        this.plugin(std.client);
+        
+        this.socket.addEventListener('open', (event) => 
+        {
+            callback(this.socket, '');
+        });
+
+        this.socket.addEventListener('close', (event) => 
+        {
+            this.plugin.log(this, 'you have lost connection with the server.');
+            this.socket.close();
+            process.exit();
+        });
+
+        this.socket.addEventListener('message', (event) => 
+        {
+            if (event.data.includes('$KEY$')) 
+            {
+                this._key = event.data.slice('$KEY$'.length);
+                return;
+            }
+            else
+            {
+                let data = this._key ? JSON.parse(decrypt(event.data, this._key)) : JSON.parse(event.data);
+                if (data.id && this.plugin[data.id]) 
+                {
+                    this.plugin[data.id](this,data.data ?? {});
+                }
+            }
+            
+        });
     }
 }

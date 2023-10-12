@@ -2,45 +2,42 @@ import * as fs from 'fs';
 
 export const server = 
 {
-    fwrite: function(server,client,data)
+    newfile: (server, client, data) =>
     {
-        data.destiny ??= data[0];
-        fs.writeFileSync('./shared/' + data.filename, data.buffer);
-        client.socket.call('log', { message: 'file written: ' + data.destiny });
-    },
-    init: function(server,client,data)
-    {
-        server._file = 
+        data.filename ??= data[0];
+        data.content ??= data.splice(1).join(' ');
+        if (!data.filename || !data.content) 
         {
-            allowReceive: true,
-            allowSend: true,
-            prohibitedFileExtensions: {},
-            blockedUsers: {},
-            
+            client.socket.call('log', 'filename or content not found.');
+            return;
         }
-    }
-}
-
-export const client = 
-{
-    freceive: function(client,data)
+        if (fs.existsSync(client.datapath + data.filename)) 
+        {
+            client.socket.call('log', 'file already exists.');
+            return;
+        }
+        fs.writeFileSync(client._file.sharedpath + data.filename, data.content);
+        client.socket.call('log', 'file created.');
+    },
+    freceive: function(server,client,data)
     {
-        if (client._file.allowReceive == false) 
+        if (server._file.allowReceive == false) 
         {
             return;
         }
-        fs.writeFileSync('./shared/' + data.filename, data.buffer);
-        client.socket.call('log', { message: 'file written: ' + data.destiny });
+        fs.writeFileSync(server._file.sharedpath + data.filename, data.buffer);
+        client.socket.call('log', 'file written: ' + data.destiny);
     },
-    fsend: function(client,data)
+    fsend: function(server,client,data)
     {
+        data.filename ??= data[0];
         if (client._file.allowSend == false) 
         {
             return;
         }
         data.filename ??= data[0];
-        console.log(data)
-        let buffer = fs.readFileSync('./shared/' + data.filename);
+        let buffer = fs.readFileSync(client._file.sharedpath + data.filename);
+        
         client.socket.call('freceive', {filename: data.filename, buffer: buffer });
     },
     init: function(server,client,data)
@@ -51,7 +48,61 @@ export const client =
             allowSend: true,
             prohibitedFileExtensions: {},
             blockedUsers: {},
+            sharedpath: './shared/'
         }
+    }
+}
+
+export const client = 
+{
+    newfile: (client, data) =>
+    {
+        data.filename ??= data[0];
+        data.content ??= data.splice(1).join(' ');
+        if (!data.filename || !data.content) 
+        {
+            client.plugin.call('log', 'filename or content not found.');
+            return;
+        }
+        if (fs.existsSync(client._file.sharedpath + data.filename)) 
+        {
+            client.socket.call('log', 'file already exists.');
+            return;
+        }
+        fs.writeFileSync(client._file.sharedpath + data.filename, data.content);
+        client.call('log', 'file created.');
+    },
+    freceive: function(client,data)
+    {
+        if (client._file.allowReceive == false) 
+        {
+            return;
+        }
+        fs.writeFileSync(client._file.sharedpath + data.filename, Buffer.from(data.buffer));
+        client.call('log', 'file written: ' + data.filename);
+    },
+    fsend: function(client,data)
+    {
+        if (client._file.allowSend == false) 
+        {
+            return;
+        }
+        data.filename ??= data[0];
+        let buffer = fs.readFileSync(client._file.sharedpath + data.filename);
+        client.call('freceive', {filename: data.filename, buffer: buffer});
+    },
+    ['.fetch']: function(client,data)
+    {
+        if (client._file.allowReceive == false) 
+        {
+            return;
+        }
+        data.filename ??= data[0];
+        client.call('fsend', {filename: data.filename});
+        
+    },
+    init: function(client,data)
+    {
     }
 }
 
