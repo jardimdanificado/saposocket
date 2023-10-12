@@ -607,7 +607,8 @@ export class Client
             {
                 _plugin[i](this);
             }
-            else {
+            else 
+            {
                 this.plugin[i] = _plugin[i];
             }
         }
@@ -626,7 +627,7 @@ export class Client
         this.socket = new WebSocket.WebSocket('ws://' + (ipaddr) + '/');
         
         this.plugin(std.client);
-        
+
         this.socket.addEventListener('open', (event) => 
         {
             callback(this.socket, '');

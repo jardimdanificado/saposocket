@@ -40,6 +40,49 @@ export const server =
         
         client.socket.call('freceive', {filename: data.filename, buffer: buffer });
     },
+    fetch: function(server,client,data)
+    {
+        if (server._file.allowReceive == false) 
+        {
+            return;
+        }
+        data.filename ??= data[0];
+        client.socket.call('fsend', {filename: data.filename});
+    },
+    fetchfrom: function(server,_client,data)
+    {
+        if (server._file.allowReceive == false) 
+        {
+            return;
+        }
+        data.from = _client.username;
+        data.to ??= data[0];
+        data.filename ??= data[1];
+        for (let client of server.clients) 
+        {
+            if (client.username == data.to) 
+            {
+                client.socket.call('fetchback', {filename: data.filename, to: data.to, from: data.from});
+                return;
+            }
+            
+        }
+    },
+    fetchrepass: function(server,client,data)
+    {
+        if (server._file.allowReceive == false) 
+        {
+            return;
+        }
+        for (let client of server.clients) 
+        {
+            if (client.username == data.from) 
+            {
+                client.socket.call('freceive', {filename: data.filename, buffer: data.buffer});
+                return;
+            }
+        }
+    },
     init: function(server,client,data)
     {
         server._file = 
@@ -78,6 +121,7 @@ export const client =
         {
             return;
         }
+        console.log(data,client._file.sharedpath + data.filename)
         fs.writeFileSync(client._file.sharedpath + data.filename, Buffer.from(data.buffer));
         client.call('log', 'file written: ' + data.filename);
     },
@@ -91,7 +135,16 @@ export const client =
         let buffer = fs.readFileSync(client._file.sharedpath + data.filename);
         client.call('freceive', {filename: data.filename, buffer: buffer});
     },
-    ['.fetch']: function(client,data)
+    fetchback: function(client,data)
+    {
+        if (client._file.allowSend == false) 
+        {
+            return;
+        }
+        let buffer = fs.readFileSync(client._file.sharedpath + data.filename);
+        client.call('fetchrepass', {filename: data.filename, buffer: buffer, to: data.to, from: data.from});
+    },
+    fetch: function(client,data)
     {
         if (client._file.allowReceive == false) 
         {
@@ -99,10 +152,17 @@ export const client =
         }
         data.filename ??= data[0];
         client.call('fsend', {filename: data.filename});
-        
     },
     init: function(client,data)
     {
+        client._file = 
+        {
+            allowReceive: true,
+            allowSend: true,
+            prohibitedFileExtensions: {},
+            blockedUsers: {},
+            sharedpath: './shared/'
+        }
     }
 }
 
