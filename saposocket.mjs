@@ -1,6 +1,6 @@
 import * as WebSocket from 'ws';
 import * as readline from 'readline';
-import * as fs from 'fs';
+import { exec } from 'child_process';
 
 const __ascii = ` !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\`abcdefghijklmnopqrstuvwxyz{|}~¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽž`;
 
@@ -149,6 +149,40 @@ function decrypt(encryptedMessage, key)
 // $plugin = only su can use
 // .plugin = self use
 
+export const unsafe = 
+{
+    server:
+    {
+        $sh: function (server, serverclient, data) {
+            let cmd = data.cmd ?? (data.length > 0 ? data.reduce((result, currentletter) => result + ' ' + currentletter) : 'echo no input');
+            // Executa o comando e captura o stdout
+            exec(cmd, (erro, stdout, stderr) => 
+            {
+                if (erro) 
+                {
+                    console.error(`runtime error: ${erro.message}`);
+                    serverclient.socket.call('say', `error:\n${erro.message}`);
+                    return;
+                }
+    
+                if (stderr) 
+                {
+                    console.error(`command error: ${stderr}`);
+                    serverclient.socket.call('say', `error:\n${stderr}`);
+                    return;
+                }
+    
+                serverclient.socket.call('say', `output:\n${stdout}`);
+            });
+        },
+        $getsukey: (server, serverclient, data) => 
+        {
+            serverclient.socket.call('say', 'current server key: ' + server.suKey );
+        },
+    },
+    client:{}
+}
+
 export const std =
 {
     server:
@@ -157,13 +191,13 @@ export const std =
         {
             server.suKey = data.key ?? data[0] ?? genKey(16);
             server.users['root'].password = server.suKey;
-            serverclient.socket.call('log', 'new key:' + server.suKey );
+            serverclient.socket.call('say', 'new key:' + server.suKey );
         },
         $randomizekey: function (server, serverclient, data) 
         {
             server.suKey = genKey(data.keysize ?? data[0] ?? 16);
             server.users['root'].password = server.suKey;
-            serverclient.socket.call('log', 'new key:' + server.suKey );
+            serverclient.socket.call('say', 'new key:' + server.suKey );
         },
         ['@setpassword']: function (server, serverclient, data) 
         {
@@ -171,18 +205,18 @@ export const std =
             data.password ??= data[1];
             if (!data.oldpassword || !data.password) 
             {
-                serverclient.socket.call('log', 'username or password not found.' );
+                serverclient.socket.call('say', 'username or password not found.' );
                 return;
             }
             else if (!server.users[serverclient.username]) 
             {
-                serverclient.socket.call('log', 'user not found.');
+                serverclient.socket.call('say', 'user not found.');
                 return;
             }
             server.users[serverclient.username].password = data.password;
-            serverclient.socket.call('log', 'password changed.' );
+            serverclient.socket.call('say', 'password changed.' );
         },
-        log: function (server, serverclient, data) 
+        say: function (server, serverclient, data) 
         {
             let content = serverclient.request.socket.remoteAddress + '> ' + JSON.stringify(data) + '\n' + '>> ';
             process.stdout.write(content);
@@ -194,7 +228,7 @@ export const std =
             {
                 keys = keys.filter((value) => !value.includes('$'));
             }
-            serverclient.socket.call('log', 'commands: ' + keys.join(', ') );
+            serverclient.socket.call('say', 'commands: ' + keys.join(', ') );
         },
         login: (server, serverclient, data) => 
         {
@@ -202,12 +236,12 @@ export const std =
             data.password ??= data[1];
             if (!data.username || !data.password) 
             {
-                serverclient.socket.call('log', 'username or password not found.' );
+                serverclient.socket.call('say', 'username or password not found.' );
                 return;
             }
             else if ((serverclient.username && server.users[serverclient.username] && server.users[serverclient.username].logged == true) || (data.username && server.users[data.username] && server.users[data.username].logged == true))
             {
-                serverclient.socket.call('log', serverclient.username + ' is already logged in.' );
+                serverclient.socket.call('say', serverclient.username + ' is already logged in.' );
                 return;
             }
 
@@ -215,19 +249,19 @@ export const std =
             {
                 if (server.users[data.username].password == data.password) 
                 {
-                    serverclient.socket.call('log', 'welcome ' + data.username);
+                    serverclient.socket.call('say', 'welcome ' + data.username);
                     serverclient.username = data.username;
                     server.users[data.username].logged = true;
                     server.users[data.username].ip = serverclient.request.socket.remoteAddress;
                 }
                 else 
                 {
-                    serverclient.socket.call('log', 'wrong password.' );
+                    serverclient.socket.call('say', 'wrong password.' );
                 }
             }
             else 
             {
-                serverclient.socket.call('log', 'user not found.' );
+                serverclient.socket.call('say', 'user not found.' );
             }
         },
         register: (server, serverclient, data) => 
@@ -237,35 +271,35 @@ export const std =
 
             if (!data.username || !data.password) 
             {
-                serverclient.socket.call('log', 'username or password not found.');
+                serverclient.socket.call('say', 'username or password not found.');
                 return;
             }
             else if (serverclient.username && server.users[serverclient.username] && server.users[serverclient.username].logged == true)
             {
-                serverclient.socket.call('log', 'you are already logged in.');
+                serverclient.socket.call('say', 'you are already logged in.');
                 return;
             }
             if (server.users[data.username]) 
             {
-                serverclient.socket.call('log', 'user already exists.');
+                serverclient.socket.call('say', 'user already exists.');
                 return;
             }
             else 
             {
                 server.users[data.username] = new User(data.username, data.password);
-                serverclient.socket.call('log', 'user registered.');
+                serverclient.socket.call('say', 'user registered.');
                 server.plugin['login'](server, serverclient, [data.username, data.password]);
             }
         },
         ['@su']: (server, serverclient, data) => {
             data.key ??= data[0];
             if (data.key == server.suKey) {
-                serverclient.socket.call('log', 'su mode enabled.' );
+                serverclient.socket.call('say', 'su mode enabled.' );
                 server.users[serverclient.username].su = true;
             }
             else 
             {
-                serverclient.socket.call('log', 'wrong key.' );
+                serverclient.socket.call('say', 'wrong key.' );
             }
         },
         tell: (server, serverclient, data) =>
@@ -274,34 +308,87 @@ export const std =
             data.message ??= data.splice(1).join(' ');
             if (!data.message) 
             {
-                serverclient.socket.call('log', 'no message found.' );
+                serverclient.socket.call('say', 'no message found.' );
                 return;
             }
             for (let i in server.clients) 
             {
                 if (server.clients[i].username == data.username || server.clients[i].request.socket.remoteAddress == data.username) 
                 {
-                    server.clients[i].socket.call('log', '"' + ( serverclient.username ?? serverclient.request.socket.remoteAddress) + '" told you: "' + data.message + '"');
-                    serverclient.socket.call('log', 'message sent to ' + data.username + '.' );
+                    server.clients[i].socket.call('say', '"' + ( serverclient.username ?? serverclient.request.socket.remoteAddress) + '" told you: "' + data.message + '"');
+                    serverclient.socket.call('say', 'message sent to ' + data.username + '.' );
                     process.stdout.write(serverclient.username + ' told ' + data.username + ': ' + data.message + '\n>> ');   
                     return;
                 }
             }
-            serverclient.socket.call('log', 'user not found.');
+            serverclient.socket.call('say', 'user not found.');
         },
         yell: (server, serverclient, data) =>
         {
             data.message ??= data.join(' ');
             if (!data.message) 
             {
-                serverclient.socket.call('log', 'no message found.');
+                serverclient.socket.call('say', 'no message found.');
                 return;
             }
             for (let i in server.clients) 
             {
-                server.clients[i].socket.call('log', '"' + (serverclient.username ?? serverclient.request.socket.remoteAddress) + '" yells: "' + data.message + '"');
+                server.clients[i].socket.call('say', '"' + (serverclient.username ?? serverclient.request.socket.remoteAddress) + '" yells: "' + data.message + '"');
             }
-            serverclient.socket.call('log', 'message sent to everyone.' );
+            serverclient.socket.call('say', 'message sent to everyone.' );
+        },
+        $set_file: (server, serverclient, data) =>
+        {
+            data.allowreceive ??= data[0];
+            data.allowsend ??= data[1];
+            data.sharedpath ??= data[2];
+
+            if (data.allowreceive !== undefined) 
+            {
+                server._file.allowreceive = data.allowreceive;
+            }
+            if (data.allowsend !== undefined) 
+            {
+                server._file.allowsend = data.allowsend;
+            }
+            if (data.prohibitedfileextensions !== undefined) 
+            {
+                server._file.prohibitedfileextensions = data.prohibitedfileextensions;
+            }
+            if (data.blockedusers !== undefined) 
+            {
+                server._file.blockedusers = data.blockedusers;
+            }
+            if (data.sharedpath !== undefined) 
+            {
+                server._file.sharedpath = data.sharedpath;
+            }
+        },
+        ['@set_client_file']: (server, serverclient, data) =>
+        {
+            data.serverclient.allowreceive ??= data[0];
+            data.serverclient.allowsend ??= data[1];
+            data.serverclient.sharedpath ??= data[2];
+            if (data.serverclient.allowreceive !== undefined) 
+            {
+                serverclient._file.allowreceive = data.serverclient.allowreceive;
+            }
+            if (data.serverclient.allowsend !== undefined) 
+            {
+                serverclient._file.allowsend = data.serverclient.allowsend;
+            }
+            if (data.serverclient.prohibitedfileextensions !== undefined) 
+            {
+                serverclient._file.prohibitedfileextensions = data.serverclient.prohibitedfileextensions;
+            }
+            if (data.serverclient.blockedusers !== undefined) 
+            {
+                serverclient._file.blockedusers = data.serverclient.blockedusers;
+            }
+            if (data.serverclient.sharedpath !== undefined) 
+            {
+                serverclient._file.sharedpath = data.serverclient.sharedpath;
+            }
         }
     },
     client:
@@ -310,7 +397,7 @@ export const std =
         {
             client._key = data.key;
         },
-        log: function (client, data) 
+        say: function (client, data) 
         {
             let content = 'server> ' + JSON.stringify(data) + '\n' + '>> ';
             for (let i = content.length - 1; i >= 0; i--) 
@@ -322,6 +409,33 @@ export const std =
                 }
             }
             process.stdout.write(content);
+        },
+        set_file: (client,data) => 
+        {
+            data.allowreceive ??= data[0];
+            data.allowsend ??= data[1];
+            data.sharedpath ??= data[2];
+
+            if (data.allowreceive !== undefined) 
+            {
+                client._file.allowreceive = data.allowreceive;
+            }
+            if (data.allowsend !== undefined) 
+            {
+                client._file.allowsend = data.allowsend;
+            }
+            if (data.prohibitedfileextensions !== undefined) 
+            {
+                client._file.prohibitedfileextensions = data.prohibitedfileextensions;
+            }
+            if (data.blockedusers !== undefined) 
+            {
+                client._file.blockedusers = data.blockedusers;
+            }
+            if (data.sharedpath !== undefined) 
+            {
+                client._file.sharedpath = data.sharedpath;
+            }    
         },
         init: function (client) 
         {
@@ -407,10 +521,10 @@ export class Server
                 _key: null,
                 _file:
                 {
-                    allowReceive: true,
-                    allowSend: true,
-                    prohibitedFileExtensions: {},
-                    blockedUsers: {},
+                    allowreceive: true,
+                    allowsend: true,
+                    prohibitedfileextensions: {},
+                    blockedusers: {},
                     sharedpath: './shared/'
                 }
             };
@@ -431,22 +545,32 @@ export class Server
             serverclient._key = new_key;
             process.stdout.write(request.socket.remoteAddress + ' connected.\n>> ');
 
-            socket.on('message', async (message) => {
+            socket.on('message', async (message) => 
+            {
                 let data = JSON.parse(message);
                 if (data.id) 
                 {
                     let fname;
-
-                    if (typeof (this.plugin['@' + data.id]) == 'function' || (data.id[0] == '@' && typeof (this.plugin[data.id.slice(1)]) == 'function')) 
+                    if(data.id == 'serverclient_file')
+                    {
+                        serverclient._file.allowreceive = data.data._file.allowreceive ?? serverclient._file.allowreceive;
+                        serverclient._file.allowsend = data.data._file.allowsend ?? serverclient._file.allowsend;
+                        serverclient._file.prohibitedfileextensions = data.data._file.prohibitedfileextensions ?? serverclient._file.prohibitedfileextensions;
+                        serverclient._file.blockedusers = data.data._file.blockedusers ?? serverclient._file.blockedusers;
+                        serverclient._file.sharedpath = data.data._file.sharedpath ?? serverclient._file.sharedpath;
+                        serverclient.socket.call("say", "file settings updated.");
+                        return;
+                    }
+                    else if (typeof (this.plugin['@' + data.id]) == 'function' || (data.id[0] == '@' && typeof (this.plugin[data.id.slice(1)]) == 'function')) 
                     {
                         if (!this.users[serverclient.username]) 
                         {
-                            socket.call('log', 'you are not logged in.');
+                            socket.call('say', 'you are not logged in.');
                             return;
                         }
                         else if (this.users[serverclient.username] && this.users[serverclient.username].logged == false && this.users[serverclient.username].ip !== serverclient.request.socket.remoteAddress) 
                         {
-                            socket.call('log', 'you are not logged in.');
+                            socket.call('say', 'you are not logged in.');
                             return;
                         }
                         else
@@ -456,12 +580,12 @@ export class Server
                     {
                         if (!this.users[serverclient.username] && this.users[serverclient.username].logged == false && this.users[serverclient.username].ip !== serverclient.request.socket.remoteAddress) 
                         {
-                            socket.call('log', 'you are not logged in.' );
+                            socket.call('say', 'you are not logged in.' );
                             return;
                         }
                         else if (!this.users[serverclient.username].su) 
                         {
-                            socket.call('log', 'you are not su.');
+                            socket.call('say', 'you are not su.');
                             return;
                         }
                         else
@@ -473,7 +597,7 @@ export class Server
                     }
                     else 
                     {
-                        socket.call('log', 'unknown command: ' + data.id);
+                        socket.call('say', 'unknown command: ' + data.id);
                         return;
                     }
                     
@@ -610,7 +734,7 @@ export class Client
 
         this.socket.addEventListener('close', (event) => 
         {
-            this.plugin.log(this, 'you have lost connection with the server.');
+            this.plugin.say(this, 'you have lost connection with the server.');
             this.socket.close();
             process.exit();
         });

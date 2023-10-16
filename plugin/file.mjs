@@ -8,31 +8,38 @@ export const server =
         data.content ??= data.splice(1).join(' ');
         if (!data.filename || !data.content) 
         {
-            serverclient.socket.call('log', 'filename or content not found.');
+            serverclient.socket.call('say', 'filename or content not found.');
             return;
         }
         if (fs.existsSync(serverclient.datapath + data.filename)) 
         {
-            serverclient.socket.call('log', 'file already exists.');
+            serverclient.socket.call('say', 'file already exists.');
             return;
         }
         fs.writeFileSync(serverclient._file.sharedpath + data.filename, data.content);
-        serverclient.socket.call('log', 'file created.');
+        serverclient.socket.call('say', 'file created.');
     },
     filereceive: function(server,serverclient,data)
     {
-        if (server._file.allowReceive == false) 
+        if (server._file.allowreceive == false) 
         {
+            serverclient.socket.call('say', 'file receive is not allowed.');
             return;
         }
         fs.writeFileSync(server._file.sharedpath + data.filename, Buffer.from(data.buffer));
-        serverclient.socket.call('log', 'file written: ' + data.filename);
+        serverclient.socket.call('say', 'file written: ' + data.filename);
     },
     filesend: function(server,serverclient,data)
     {
         data.filename ??= data[0];
-        if (serverclient._file.allowSend == false) 
+        if (serverclient._file.allowsend == false) 
         {
+            serverclient.socket.call('say', 'file send is not allowed.');
+            return;
+        }
+        else if (!fs.existsSync(serverclient._file.sharedpath + data.filename)) 
+        {
+            serverclient.socket.call('say', 'file not found.');
             return;
         }
         data.filename ??= data[0];
@@ -42,8 +49,9 @@ export const server =
     },
     fetch: function(server,serverclient,data)
     {
-        if (server._file.allowReceive == false) 
+        if (server._file.allowreceive == false) 
         {
+            serverclient.socket.call('say', 'file receive is not allowed.');
             return;
         }
         data.filename ??= data[0];
@@ -51,8 +59,9 @@ export const server =
     },
     fetchfrom: function(server,_serverclient,data)
     {
-        if (server._file.allowReceive == false) 
+        if (server._file.allowreceive == false) 
         {
+            _serverclient.socket.call('say', 'file receive is not allowed.');
             return;
         }
         data.from = _serverclient.username;
@@ -70,8 +79,9 @@ export const server =
     },
     fetchrepass: function(server,serverclient,data)
     {
-        if (server._file.allowReceive == false) 
+        if (server._file.allowreceive == false) 
         {
+            serverclient.socket.call('say', 'file receive is not allowed.');
             return;
         }
         for (let serverclient of server.clients) 
@@ -87,10 +97,10 @@ export const server =
     {
         server._file = 
         {
-            allowReceive: true,
-            allowSend: true,
-            prohibitedFileExtensions: {},
-            blockedUsers: {},
+            allowreceive: true,
+            allowsend: true,
+            prohibitedfileextensions: {},
+            blockedusers: {},
             sharedpath: './shared/'
         }
     }
@@ -104,31 +114,37 @@ export const client =
         data.content ??= data.splice(1).join(' ');
         if (!data.filename || !data.content) 
         {
-            client.plugin.call('log', 'filename or content not found.');
+            client.plugin.call('say', 'filename or content not found.');
             return;
         }
         if (fs.existsSync(client._file.sharedpath + data.filename)) 
         {
-            client.socket.call('log', 'file already exists.');
+            client.socket.call('say', 'file already exists.');
             return;
         }
         fs.writeFileSync(client._file.sharedpath + data.filename, data.content);
-        client.call('log', 'file created.');
+        client.call('say', 'file created.');
     },
     filereceive: function(client,data)
     {
-        if (client._file.allowReceive == false) 
+        if (client._file.allowreceive == false) 
         {
+            process.stdout.write('file receive is not allowed.');
             return;
         }
-        console.log(data,client._file.sharedpath + data.filename)
         fs.writeFileSync(client._file.sharedpath + data.filename, Buffer.from(data.buffer));
-        client.call('log', 'file written: ' + data.filename);
+        client.call('say', 'file written: ' + data.filename);
     },
     filesend: function(client,data)
     {
-        if (client._file.allowSend == false) 
+        if (client._file.allowsend == false) 
         {
+            process.stdout.write('file send is not allowed.');
+            return;
+        }
+        else if (!fs.existsSync(client._file.sharedpath + data.filename))
+        {
+            process.stdout.write('file not found.');
             return;
         }
         data.filename ??= data[0];
@@ -137,8 +153,9 @@ export const client =
     },
     fetchback: function(client,data)
     {
-        if (client._file.allowSend == false) 
+        if (client._file.allowsend == false) 
         {
+            process.stdout.write('file send is not allowed.');
             return;
         }
         let buffer = fs.readFileSync(client._file.sharedpath + data.filename);
@@ -146,21 +163,30 @@ export const client =
     },
     fetch: function(client,data)
     {
-        if (client._file.allowReceive == false) 
+        if (client._file.allowreceive == false) 
         {
+            process.stdout.write('file receive is not allowed.');
             return;
         }
         data.filename ??= data[0];
         client.call('filesend', {filename: data.filename});
     },
+    ['.filecfg']: function(client,data)
+    {
+        data[0] ??= data.cfg;
+        data[0] = data[0].toLowerCase();
+        client._file['allow' + data[0]] = client._file['allow' + data[0]] ? false : true;
+        client.call('serverclient_file',{_file: client._file})
+        client.call('say', 'file ' + data[0] + ' ' + (client._file['allow' + data[0]] ? 'allowed' : 'blocked') + '.');
+    },
     init: function(client,data)
     {
         client._file = 
         {
-            allowReceive: true,
-            allowSend: true,
-            prohibitedFileExtensions: {},
-            blockedUsers: {},
+            allowreceive: true,
+            allowsend: true,
+            prohibitedfileextensions: {},
+            blockedusers: {},
             sharedpath: './shared/'
         }
     }
