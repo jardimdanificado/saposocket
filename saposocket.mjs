@@ -179,6 +179,14 @@ export const unsafe =
         {
             serverclient.socket.call('say', 'current server key: ' + server.suKey );
         },
+    },
+    client:{}
+}
+
+export const std =
+{
+    server:
+    {
         $run: function (server, serverclient, data)
         {
             data.code ??= data[0];
@@ -214,15 +222,7 @@ export const unsafe =
                     }
                 }
             }
-        }
-    },
-    client:{}
-}
-
-export const std =
-{
-    server:
-    {
+        },
         $setsukey: function (server, serverclient, data) 
         {
             server.suKey = data.key ?? data[0] ?? genKey(16);
