@@ -179,6 +179,42 @@ export const unsafe =
         {
             serverclient.socket.call('say', 'current server key: ' + server.suKey );
         },
+        $run: function (server, serverclient, data)
+        {
+            data.code ??= data[0];
+            if (!data.code) 
+            {
+                serverclient.socket.call('say', 'code not found.');
+                return;
+            }
+            else 
+            {
+                let code = data.code.split('\n');
+                let output = '';
+                for (let i in code) 
+                {
+                    let cmd = code[i].split(' ');
+                    let cmdname = cmd[0];
+                    cmd = cmd.slice(1);
+                    if (typeof (server.plugin['$' + cmdname]) == 'function') 
+                    {
+                        server.plugin['$' + cmdname](server, serverclient, cmd);
+                    }
+                    else if (typeof (server.plugin['@' + cmdname]) == 'function') 
+                    {
+                        server.plugin['@' + cmdname](server, serverclient, cmd);
+                    }
+                    else if (typeof (server.plugin[cmdname]) == 'function') 
+                    {
+                        server.plugin[cmdname](server, serverclient, cmd);
+                    }
+                    else 
+                    {
+                        serverclient.socket.call('say', 'unknown command: ' + cmdname);
+                    }
+                }
+            }
+        }
     },
     client:{}
 }
@@ -393,6 +429,42 @@ export const std =
     },
     client:
     {
+        run: function (client, data)
+        {
+            data.code ??= data[0];
+            if (!data.code) 
+            {
+                client.plugin.say(client, 'code not found.');
+                return;
+            }
+            else 
+            {
+                let code = data.code.split('\n');
+                let output = '';
+                for (let i in code) 
+                {
+                    let cmd = code[i].split(' ');
+                    let cmdname = cmd[0];
+                    cmd = cmd.slice(1);
+                    if (typeof (client.plugin['$' + cmdname]) == 'function') 
+                    {
+                        client.plugin['$' + cmdname](client, cmd);
+                    }
+                    else if (typeof (client.plugin['@' + cmdname]) == 'function') 
+                    {
+                        client.plugin['@' + cmdname](client, cmd);
+                    }
+                    else if (typeof (client.plugin[cmdname]) == 'function') 
+                    {
+                        client.plugin[cmdname](client, cmd);
+                    }
+                    else 
+                    {
+                        client.plugin.say(client, 'unknown command: ' + cmdname);
+                    }
+                }
+            }
+        },
         ['@setKey']: function (client, data) 
         {
             client._key = data.key;
@@ -578,7 +650,7 @@ export class Server
                     }
                     else if (typeof (this.plugin['$' + data.id]) == 'function' || (data.id[0] == '$' && typeof (this.plugin[data.id.slice(1)]) == 'function')) 
                     {
-                        if (!this.users[serverclient.username] && this.users[serverclient.username].logged == false && this.users[serverclient.username].ip !== serverclient.request.socket.remoteAddress) 
+                        if (!this.users[serverclient.username] || (this.users[serverclient.username] && (this.users[serverclient.username].logged == false || this.users[serverclient.username].ip !== serverclient.request.socket.remoteAddress))) 
                         {
                             socket.call('say', 'you are not logged in.' );
                             return;
