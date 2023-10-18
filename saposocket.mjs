@@ -1,8 +1,7 @@
 import * as WebSocket from 'ws';
 import * as readline from 'readline';
 import { exec } from 'child_process';
-
-const __ascii = ` !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\`abcdefghijklmnopqrstuvwxyz{|}~¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽž`;
+import * as _encoder from './lib/_encoder.mjs';
 
 const rl = readline.createInterface(
     {
@@ -31,109 +30,6 @@ const getInput = async (callback) =>
         }
         return input;
     });
-}
-
-//--------------------------------------------
-//--------------------------------------------
-//GENKEY
-//GENKEY
-//GENKEY
-//--------------------------------------------
-//--------------------------------------------
-
-const genKey = function (size) 
-{
-    const caracteres = __ascii;
-    let result = '';
-
-    for (let i = 0; i < size; i++) 
-    {
-        const indiceAleatorio = Math.floor(Math.random() * caracteres.length);
-        result += caracteres.charAt(indiceAleatorio);
-    }
-
-    return result;
-}
-
-
-//--------------------------------------------
-//--------------------------------------------
-//CRYPTO
-//CRYPTO
-//CRYPTO
-//--------------------------------------------
-//--------------------------------------------
-
-
-// Função para criar uma chave com permutação dos caracteres
-function createCryptoKey() 
-{
-    const caracteres = __ascii;
-    const shuffledCaracteres = shuffleString(caracteres);
-    return shuffledCaracteres;
-}
-
-// Função para embaralhar uma string
-function shuffleString(str) 
-{
-    const arr = str.split('');
-    for (let i = arr.length - 1; i > 0; i--) 
-    {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr.join('');
-}
-
-
-  // Função auxiliar para dividir uma string em pedaços de tamanho específico
-function splitString(input, chunkSize) 
-{
-    const regex = new RegExp(`.{1,${chunkSize}}`, 'g');
-    return input.match(regex) || [];
-}
-
-// Função para criptografar uma mensagem usando a chave
-function encrypt(message, key) 
-{
-    if (typeof key === 'string') 
-    {
-        key = key.split('').map(char => char.charCodeAt(0));
-    }
-
-    const messageBuffer = new TextEncoder().encode(message);
-    const encryptedBuffer = new Uint8Array(messageBuffer.length);
-
-    for (let i = 0; i < messageBuffer.length; i++) 
-    {
-        const charValue = messageBuffer[i];
-        const keyCharValue = key[i % key.length];
-        const encryptedValue = charValue + keyCharValue;
-        encryptedBuffer[i] = encryptedValue;
-    }
-
-    return encryptedBuffer;
-}
-
-function decrypt(encryptedMessage, key) 
-{
-    if (typeof key === 'string') 
-    {
-        key = key.split('').map(char => char.charCodeAt(0));
-    }
-
-    const decryptedBuffer = new Uint8Array(encryptedMessage.length);
-
-    for (let i = 0; i < encryptedMessage.length; i++) 
-    {
-        const charValue = encryptedMessage[i];
-        const keyCharValue = key[i % key.length];
-        const decryptedValue = charValue - keyCharValue;
-        decryptedBuffer[i] = decryptedValue;
-    }
-
-    const decryptedMessage = new TextDecoder().decode(decryptedBuffer);
-    return decryptedMessage;
 }
 
 //--------------------------------------------
@@ -225,13 +121,13 @@ export const std =
         },
         $setsukey: function (server, serverclient, data) 
         {
-            server.suKey = data.key ?? data[0] ?? genKey(16);
+            server.suKey = data.key ?? data[0] ?? _encoder.genKey(16);
             server.users['root'].password = server.suKey;
             serverclient.socket.call('say', 'new key:' + server.suKey );
         },
         $randomizekey: function (server, serverclient, data) 
         {
-            server.suKey = genKey(data.keysize ?? data[0] ?? 16);
+            server.suKey = _encoder.genKey(data.keysize ?? data[0] ?? 16);
             server.users['root'].password = server.suKey;
             serverclient.socket.call('say', 'new key:' + server.suKey );
         },
@@ -558,7 +454,7 @@ export class Server
 {
     clients = []
     users = {}
-    suKey = genKey(16);
+    suKey = _encoder.genKey(16);
     plugin = async function (_plugin) 
     {
         if (_plugin.server) 
@@ -607,12 +503,12 @@ export class Server
                 let message = JSON.stringify({ id: id, data: data });
                 if (typeof (serverclient._key) == 'string') 
                 {
-                    message = encrypt(message, serverclient._key);
+                    message = _encoder.encrypt(message, serverclient._key);
                 }
                 socket.send(message);
             }
 
-            let new_key = createCryptoKey();
+            let new_key = _encoder.genKey(16);
             socket.send("$KEY$" + new_key);
             serverclient._key = new_key;
             process.stdout.write(request.socket.remoteAddress + ' connected.\n>> ');
@@ -820,7 +716,7 @@ export class Client
             }
             else
             {
-                let data = this._key ? JSON.parse(decrypt(event.data, this._key)) : JSON.parse(event.data);
+                let data = this._key ? JSON.parse(_encoder.decrypt(event.data, this._key)) : JSON.parse(event.data);
                 if (data.id && this.plugin[data.id]) 
                 {
                     this.plugin[data.id](this,data.data ?? {});

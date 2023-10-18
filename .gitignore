@@ -1,2 +1,5 @@
 node_modules/
 package-lock.json
+lib/lua-interop/luajit/
+lib/lua-interop/luaside_log.txt
+*.exe
