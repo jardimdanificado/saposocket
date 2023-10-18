@@ -78,6 +78,5 @@ By using this software, you agree to comply with the terms of the GNU General Pu
 ## Acknowledgments
 
 - [LuaJIT](https://luajit.org/): The Lua Just-In-Time Compiler used in this project.
+- [luatils](https://github.com/jardimdanificado/luatils): The utils lib used in this project.
 ```
-
-This README.md provides an overview of the library, installation instructions, usage examples, and important information for potential users and developers of the `lua-interop` library. You can replace the example and license information with your specific details.
