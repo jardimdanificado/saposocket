@@ -79,4 +79,5 @@ By using this software, you agree to comply with the terms of the GNU General Pu
 
 - [LuaJIT](https://luajit.org/): The Lua Just-In-Time Compiler used in this project.
 - [luatils](https://github.com/jardimdanificado/luatils): The utils lib used in this project.
+- [json.lua](https://github.com/rxi/json.lua): The JSON lib used in this project.
 ```
