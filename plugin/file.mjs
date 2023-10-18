@@ -157,7 +157,7 @@ export const server =
             }
         }
     },
-    init: function(server,serverclient,data)
+    init: function(server)
     {
         server._file = 
         {
