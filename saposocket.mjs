@@ -466,7 +466,7 @@ export class Server
         {
             if (i == 'init') 
             {
-                _plugin[i](this);
+                await _plugin[i](this);
             }
             else 
             {
@@ -672,7 +672,7 @@ export class Client
         {
             if (i == 'init') 
             {
-                _plugin[i](this);
+                await _plugin[i](this);
             }
             else 
             {

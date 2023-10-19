@@ -20,10 +20,14 @@ export const server =
         console.log(result)
         return result;
     },
-    init:(server)=>
+    init: async (server)=>
     {
         let luapath = os.platform() == 'win32' ? './luajit/bin/mingw64/luajit.exe' : 'luajit';
+        
         server._lua = new LuaSessionManager(luapath,'../../lib/lua-interop/init.lua');
+        await server._lua.eval(`script_directory = debug.getinfo(1, "S").source:match("@(.*[\\/])")
+        package.path = script_directory .. "?.lua;" .. package.path
+        `)
     }
 }
 

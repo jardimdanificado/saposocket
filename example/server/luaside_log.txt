@@ -1,9 +1,4 @@
 
-executing: --nao pode variaveis locais
-executing: function fatorial(n) if n == 0 then return 1 else return n * fatorial(n - 1) end end;
-executing: 
-executing: numero = 5;
-executing: resultado = fatorial(numero);
-executing: json("O fatorial de " .. numero .. " é " .. resultado);
-executing: --não pode ter primeira linha em branco
-executing: --funções tem que estar em uma linha apenas
+executing: script_directory = debug.getinfo(1, "S").source:match("@(.*[\/])")
+executing:         package.path = script_directory .. "?.lua;" .. package.path
+executing:         
