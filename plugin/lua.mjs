@@ -1,5 +1,6 @@
 import * as os from 'os';
-import {LuaSession, tolua, fromlua} from '../lib/lua-interop/lua-interop.mjs';
+import * as fs from 'fs';
+import {LuaSessionManager, tolua, fromlua} from '../lib/lua-interop/lua-interop.mjs';
 
 export const server = 
 {
@@ -11,10 +12,18 @@ export const server =
     {
         console.log(await server._lua.send(`(${tolua(data)})`))
     },
+    ['luaevalfile']:async (server,serverclient,data)=>
+    {
+        data.code ??= data[0];
+        let code = fs.readFileSync(data.code).toString()
+        let result = await server._lua.eval(code);
+        console.log(result)
+        return result;
+    },
     init:(server)=>
     {
         let luapath = os.platform() == 'win32' ? './luajit/bin/mingw64/luajit.exe' : 'luajit';
-        server._lua = new LuaSession(luapath,'./init.lua');
+        server._lua = new LuaSessionManager(luapath,'../../lib/lua-interop/init.lua');
     }
 }
 
@@ -28,9 +37,10 @@ export const client =
     {
         return await client._lua.eval(data);
     },
+    
     init:async (client)=>
     {
         let luapath = os.platform() == 'win32' ? './luajit/bin/mingw64/luajit.exe' : 'luajit';
-        client._lua = new LuaSession(luapath,'./init.lua');
+        client._lua = new LuaSessionManager(luapath,'../../lib/lua-interop/init.lua');
     },
 }
