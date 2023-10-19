@@ -27,11 +27,11 @@ const result = await lua.eval("your_lua_code_here");
 
 ### Sending Data
 
-You can use the `send`, `say`, and `log` methods to send data to the Lua process:
+You can use the `json`, `text`, and `log` functions to send data to the Lua process:
 
 ```javascript
-await lua.send({ key: 'value' });
-await lua.say("This is a message");
+await lua.json({ key: 'value' });
+await lua.text("This is a message");
 await lua.log("This is a log entry");
 ```
 

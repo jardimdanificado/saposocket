@@ -1,4 +1,4 @@
-json = require("json")
+JSON = require("json")
 util = require("luatils")
 
 
@@ -6,16 +6,16 @@ _print = print -- faz um backup da função print original
 
 util.file.save.text('luaside_log.txt', '') -- limpa o arquivo de log
 
-function send(data) -- função para enviar json para o lado do cliente
-    _print('!' .. json.encode(data))
+function json(data) -- função para enviar json para o lado do cliente
+    _print('!' .. JSON.stringify(data))
     io.flush()
 end
 
-function say(data) -- função para enviar texto para o lado do cliente
+function text(data) -- função para enviar texto para o lado do cliente
     _print('?' .. data)
-    io.flush()
+    io.flush();
 end
-print = say; -- substitui a função print original pela função say
+print = text; -- substitui a função print original pela função say
 
 function log(data,filename) -- função para salvar dados no arquivo de log
     filename = filename or 'luaside_log.txt'
