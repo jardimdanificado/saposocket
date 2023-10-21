@@ -1,4 +1,0 @@
-
-executing: script_directory = debug.getinfo(1, "S").source:match("@(.*[\/])")
-executing:         package.path = script_directory .. "?.lua;" .. package.path
-executing:         
