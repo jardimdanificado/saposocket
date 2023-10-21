@@ -1,3 +1,0 @@
-[submodule "lib/lua-interop"]
-	path = lib/lua-interop
-	url = https://github.com/jardimdanificado/lua-interop
