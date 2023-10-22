@@ -204,13 +204,13 @@ export const std =
         },
         $setsukey: function (server, serverclient, data) 
         {
-            server.suKey = data.key ?? data[0] ?? _encoder.genKey(16);
+            server.suKey = data.key ?? data[0] ?? genKey(16);
             server.users['root'].password = server.suKey;
             serverclient.socket.call('say', 'new key:' + server.suKey );
         },
         $randomizekey: function (server, serverclient, data) 
         {
-            server.suKey = _encoder.genKey(data.keysize ?? data[0] ?? 16);
+            server.suKey = genKey(data.keysize ?? data[0] ?? 16);
             server.users['root'].password = server.suKey;
             serverclient.socket.call('say', 'new key:' + server.suKey );
         },
@@ -537,7 +537,7 @@ export class Server
 {
     clients = []
     users = {}
-    suKey = _encoder.genKey(16);
+    suKey = genKey(16);
     plugin = async function (_plugin) 
     {
         if (_plugin.server) 
@@ -590,12 +590,12 @@ export class Server
                 let message = JSON.stringify({ id: id, data: data });
                 if (typeof (serverclient._key) == 'string') 
                 {
-                    message = _encoder.encrypt(message, serverclient._key);
+                    message = encrypt(message, serverclient._key);
                 }
                 socket.send(message);
             }
 
-            let new_key = _encoder.genKey(16);
+            let new_key = genKey(16);
             socket.send("$KEY$" + new_key);
             serverclient._key = new_key;
             process.stdout.write(request.socket.remoteAddress + ' connected.\n>> ');
@@ -808,7 +808,7 @@ export class Client
             }
             else
             {
-                let data = this._key ? JSON.parse(_encoder.decrypt(event.data, this._key)) : JSON.parse(event.data);
+                let data = this._key ? JSON.parse(decrypt(event.data, this._key)) : JSON.parse(event.data);
                 if (data.id && this.plugin[data.id]) 
                 {
                     this.plugin[data.id](this,data.data ?? {});
