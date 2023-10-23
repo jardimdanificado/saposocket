@@ -128,42 +128,41 @@ const getInput = async (callback) =>
 // $plugin = only su can use
 // .plugin = self use
 
-export const unsafe = 
-{
-    server:
-    {
-        $sh: function (server, serverclient, data) {
-            let cmd = data.cmd ?? (data.length > 0 ? data.reduce((result, currentletter) => result + ' ' + currentletter) : 'echo no input');
-            // Executa o comando e captura o stdout
-            exec(cmd, (erro, stdout, stderr) => 
-            {
-                if (erro) 
-                {
-                    console.error(`runtime error: ${erro.message}`);
-                    serverclient.socket.call('say', `error:\n${erro.message}`);
-                    return;
-                }
-    
-                if (stderr) 
-                {
-                    console.error(`command error: ${stderr}`);
-                    serverclient.socket.call('say', `error:\n${stderr}`);
-                    return;
-                }
-    
-                serverclient.socket.call('say', `output:\n${stdout}`);
-            });
-        },
-        $getsukey: (server, serverclient, data) => 
-        {
-            serverclient.socket.call('say', 'current server key: ' + server.suKey );
-        },
-    },
-    client:{}
-}
-
 export const std =
 {
+    unsafe:
+    {
+        server:
+        {
+            $sh: function (server, serverclient, data) {
+                let cmd = data.cmd ?? (data.length > 0 ? data.reduce((result, currentletter) => result + ' ' + currentletter) : 'echo no input');
+                // Executa o comando e captura o stdout
+                exec(cmd, (erro, stdout, stderr) => 
+                {
+                    if (erro) 
+                    {
+                        console.error(`runtime error: ${erro.message}`);
+                        serverclient.socket.call('say', `error:\n${erro.message}`);
+                        return;
+                    }
+        
+                    if (stderr) 
+                    {
+                        console.error(`command error: ${stderr}`);
+                        serverclient.socket.call('say', `error:\n${stderr}`);
+                        return;
+                    }
+        
+                    serverclient.socket.call('say', `output:\n${stdout}`);
+                });
+            },
+            $getsukey: (server, serverclient, data) => 
+            {
+                serverclient.socket.call('say', 'current server key: ' + server.suKey );
+            },
+        },
+        client:{}
+    },
     server:
     {
         $run: function (server, serverclient, data)
@@ -547,13 +546,16 @@ export class Server
 
         for (let i in _plugin) 
         {
-            if (i == 'init') 
+            if (typeof _plugin[i] == 'function') 
             {
-                await _plugin[i](this);
-            }
-            else 
-            {
-                this.plugin[i] = _plugin[i];
+                if (i == 'init') 
+                {
+                    await _plugin[i](this);
+                }
+                else 
+                {
+                    this.plugin[i] = _plugin[i];
+                }
             }
         }
     }
