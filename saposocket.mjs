@@ -563,10 +563,13 @@ export class Server
     {
         this.plugin[funcname] = callback;
     }
-    constructor(port = '8080') 
+    constructor(port = '8080',clean = false) 
     {
         const server = new WebSocket.WebSocketServer({ port: port });
-        this.plugin(std.server);
+        if (!clean) 
+        {
+            this.plugin(std.server);
+        }
         server.on('connection', (socket, request) => 
         {
             const serverclient =
@@ -783,11 +786,14 @@ export class Client
         }))
     }
 
-    constructor(ipaddr, callback) 
+    constructor(ipaddr, callback, clean = false) 
     {
         this.socket = new WebSocket.WebSocket('ws://' + (ipaddr) + '/');
         
-        this.plugin(std.client);
+        if (!clean) 
+        {
+            this.plugin(std.client);
+        }
 
         this.socket.addEventListener('open', (event) => 
         {
